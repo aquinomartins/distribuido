@@ -10,5 +10,5 @@ header('Content-Type: application/json');
 http_response_code(403);
 echo json_encode([
   'error' => 'confirmation_required',
-  'detail' => 'As operações de ativos especiais agora exigem confirmação por e-mail. Solicite a transação e confirme-a pelo link recebido.'
+  'detail' => 'As operações de ativos especiais precisam ser confirmadas no aplicativo. Solicite a transação e finalize-a na aba "Transações pendentes".'
 ]);

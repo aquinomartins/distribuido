@@ -85,3 +85,23 @@ small.hint { color:#6b7280; }
 .asset-action-card .form-msg { min-height:18px; font-size:0.8rem; color:#047857; margin:0; }
 .asset-action-card .form-msg.err { color:#b91c1c; }
 .asset-action-card .field-brl { display:none; }
+.pending-transactions .pending-list { display:grid; gap:16px; }
+.pending-card { background:var(--card); color:var(--text); border-radius:12px; padding:16px; border:1px solid rgba(255,255,255,0.08); box-shadow:0 10px 24px rgba(15,23,42,0.45); }
+.pending-card header { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.pending-card header h3 { margin:0; font-size:1.1rem; color:#f9fafb; }
+.pending-card header .meta { font-size:0.85rem; color:var(--muted); }
+.pending-card .details { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px 16px; margin:0 0 12px; }
+.pending-card .details dt { font-weight:600; color:#f9fafb; }
+.pending-card .details dd { margin:0; color:var(--muted); }
+.pending-card .participants-wrapper h4 { margin:0 0 8px; font-size:0.95rem; color:#f9fafb; }
+.pending-card .participants { list-style:none; margin:0 0 12px; padding:0; display:flex; flex-direction:column; gap:6px; }
+.pending-card .participants li { display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.6); border:1px solid rgba(148,163,184,0.25); border-radius:8px; padding:8px 12px; }
+.pending-card .participants li span { font-weight:600; color:#f9fafb; }
+.pending-card .participants li small { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; }
+.pending-card .participants li.confirmed small { color:#10b981; }
+.pending-card .participants li.pending small { color:#fbbf24; }
+.pending-card .msg { margin:0 0 8px; }
+.pending-card .btn-confirm { margin-top:4px; }
+.badge-waiting { background:rgba(251,191,36,0.2); color:#facc15; }
+.pending-transactions .msg { margin-bottom:12px; }
+

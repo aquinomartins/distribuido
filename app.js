@@ -49,6 +49,31 @@ function esc(str){
   })[s]);
 }
 
+function formatSpecialAssetAction(action){
+  const key = String(action ?? '').toLowerCase();
+  return SPECIAL_ASSET_ACTION_LABELS[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : '');
+}
+function formatSpecialAssetAmountText(asset, amount){
+  const key = String(asset ?? '').toLowerCase();
+  const value = Number(amount);
+  if (!Number.isFinite(value)) {
+    return String(amount ?? '');
+  }
+  if (key === 'brl') {
+    return formatBRL(value);
+  }
+  if (key === 'bitcoin') {
+    return formatBTC(value);
+  }
+  if (key === 'nft') {
+    return String(Math.round(value));
+  }
+  if (key === 'quotas') {
+    return formatNumber(value, 4);
+  }
+  return formatNumber(value);
+}
+
 /* ========= Liquidity Game ========= */
 let liquidityGame = null;
 let liquidityPlayers = [];
@@ -185,6 +210,12 @@ const SPECIAL_ASSET_LABELS = {
   nft: 'NFTs',
   brl: 'Saldo em R$',
   quotas: 'Cotas'
+};
+
+const SPECIAL_ASSET_ACTION_LABELS = {
+  buy: 'Compra',
+  sell: 'Venda',
+  deposit: 'Depósito'
 };
 
 function summarizeUserAssets(assets){
@@ -1554,7 +1585,7 @@ async function viewUserAssets(){
 
         if (res.ok) {
           if (messageBox) {
-            const detail = data && (data.detail || 'Solicitação registrada. Verifique seu e-mail para confirmar a operação.');
+            const detail = data && (data.detail || 'Solicitação registrada. Confirme pela aba "Transações pendentes".');
             messageBox.textContent = detail;
             messageBox.classList.remove('err');
           }
@@ -1712,6 +1743,169 @@ async function viewAdmin(){
   }
 }
 
+function renderPendingTransactionCard(req){
+  if (!req || typeof req !== 'object') return '';
+  const assetKey = String(req.asset ?? '').toLowerCase();
+  const assetLabel = SPECIAL_ASSET_LABELS[assetKey] || (assetKey ? assetKey.toUpperCase() : 'Ativo');
+  const actionLabel = formatSpecialAssetAction(req.action);
+  const amountText = formatSpecialAssetAmountText(req.asset, req.amount);
+  const totalBrlText = req.total_brl !== null && typeof req.total_brl !== 'undefined'
+    ? formatBRL(Number(req.total_brl))
+    : null;
+  const createdAtRaw = req.created_at ? String(req.created_at) : '';
+  let createdText = createdAtRaw;
+  if (createdAtRaw) {
+    const createdDate = new Date(createdAtRaw);
+    if (createdDate instanceof Date && !Number.isNaN(createdDate.getTime())) {
+      createdText = createdDate.toLocaleString('pt-BR');
+    }
+  }
+  const approvals = Array.isArray(req.approvals) ? req.approvals : [];
+  const participants = approvals.length
+    ? approvals.map(participant => {
+        const confirmed = !!participant.confirmed;
+        const status = confirmed ? 'Confirmado' : 'Pendente';
+        const statusClass = confirmed ? 'confirmed' : 'pending';
+        const name = esc(participant.display_name ?? participant.name ?? 'Participante');
+        return `<li class="participant ${statusClass}"><span>${name}</span><small>${status}</small></li>`;
+      }).join('')
+    : '<li class="participant pending"><span>Nenhum participante encontrado</span></li>';
+  const initiatorName = req.initiator && req.initiator.display_name ? esc(req.initiator.display_name) : 'Usuário';
+  const counterpartyName = req.counterparty && req.counterparty.display_name
+    ? `<dt>Com</dt><dd>${esc(req.counterparty.display_name)}</dd>`
+    : '';
+  const currentApproval = approvals.find(p => Number(p.user_id) === Number(currentSession.user_id));
+  const alreadyConfirmed = currentApproval ? !!currentApproval.confirmed : false;
+  let confirmButton = '';
+  if (req.can_confirm) {
+    confirmButton = `<button class="btn-confirm" data-request="${req.id}">Confirmar transação</button>`;
+  } else {
+    const label = alreadyConfirmed ? 'Aguardando outros usuários' : 'Aguardando confirmação';
+    confirmButton = `<button class="btn-confirm" data-request="${req.id}" disabled>${label}</button>`;
+  }
+  const lastError = req.last_error ? `<p class="msg err">${esc(req.last_error)}</p>` : '';
+  const statusBadge = req.status === 'confirmed' && !req.can_confirm
+    ? '<span class="badge badge-waiting">Aguardando outro participante</span>'
+    : '';
+  return `
+    <article class="card pending-card" data-request="${req.id}">
+      <header>
+        <h3>${esc(actionLabel)} • ${esc(assetLabel)}</h3>
+        <span class="meta">Criado em ${esc(createdText)}</span>
+        ${statusBadge}
+      </header>
+      <dl class="details">
+        <dt>Quantidade</dt><dd>${esc(amountText)}</dd>
+        ${totalBrlText ? `<dt>Total em R$</dt><dd>${esc(totalBrlText)}</dd>` : ''}
+        <dt>Solicitante</dt><dd>${initiatorName}</dd>
+        ${counterpartyName}
+      </dl>
+      <div class="participants-wrapper">
+        <h4>Participantes</h4>
+        <ul class="participants">${participants}</ul>
+      </div>
+      ${lastError}
+      <p class="msg" data-role="feedback"></p>
+      ${confirmButton}
+    </article>
+  `;
+}
+function renderPendingTransactionsList(requests){
+  if (!Array.isArray(requests) || requests.length === 0) {
+    return '<p class="hint">Nenhuma transação pendente no momento.</p>';
+  }
+  return `<div class="pending-list">${requests.map(renderPendingTransactionCard).join('')}</div>`;
+}
+function renderPendingTransactionsContent(section, requests, flashMessage = null){
+  if (!section) return;
+  const flash = flashMessage && flashMessage.text
+    ? `<p class="msg ${flashMessage.type === 'error' ? 'err' : ''}">${esc(flashMessage.text)}</p>`
+    : '';
+  section.innerHTML = `
+    <h1>Transações Pendentes</h1>
+    <p class="hint">Revise e confirme as operações de ativos especiais envolvendo sua conta.</p>
+    ${flash}
+    ${renderPendingTransactionsList(requests)}
+  `;
+  bindPendingTransactionActions(section);
+}
+function bindPendingTransactionActions(section){
+  if (!section) return;
+  section.querySelectorAll('button.btn-confirm[data-request]').forEach(btn => {
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    if (btn.disabled) return;
+    btn.addEventListener('click', async () => {
+      const requestId = parseInt(btn.dataset.request, 10);
+      if (!Number.isFinite(requestId)) {
+        return;
+      }
+      const card = btn.closest('.pending-card');
+      const feedback = card ? card.querySelector('[data-role="feedback"]') : null;
+      if (feedback) {
+        feedback.textContent = 'Confirmando transação...';
+        feedback.classList.remove('err');
+      }
+      btn.disabled = true;
+      let completed = false;
+      try {
+        const res = await fetch(API('confirm_special_asset_action.php'), {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request_id: requestId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const status = data && typeof data.status === 'string' ? data.status : 'pending';
+          const flash = {
+            text: status === 'executed'
+              ? 'Transação confirmada e executada com sucesso.'
+              : 'Sua confirmação foi registrada. Aguarde os demais participantes.',
+            type: status === 'executed' ? 'success' : 'info'
+          };
+          const updated = Array.isArray(data.pending_requests) ? data.pending_requests : [];
+          completed = true;
+          renderPendingTransactionsContent(section, updated, flash);
+          return;
+        }
+        const detail = data && (data.detail || data.error || res.statusText);
+        if (feedback) {
+          feedback.textContent = 'Erro: ' + detail;
+          feedback.classList.add('err');
+        }
+      } catch (err) {
+        if (feedback) {
+          feedback.textContent = 'Erro inesperado ao confirmar a transação.';
+          feedback.classList.add('err');
+        }
+      } finally {
+        if (!completed && btn.isConnected) {
+          btn.disabled = false;
+        }
+      }
+    });
+  });
+}
+async function viewPendingTransactions(flashMessage = null){
+  if (!currentSession.logged) {
+    return needLogin();
+  }
+  const view = document.getElementById('view');
+  view.innerHTML = '<section class="section pending-transactions" data-role="pending-root"><h1>Transações Pendentes</h1><p class="hint">Carregando transações...</p></section>';
+  const section = view.querySelector('[data-role="pending-root"]');
+  const data = await getJSON(API('special_asset_requests.php'));
+  if (data && data.__auth === false) {
+    return needLogin();
+  }
+  if (data && data.error) {
+    section.innerHTML = '<h1>Transações Pendentes</h1><p class="msg err">Não foi possível carregar as solicitações.</p>';
+    return;
+  }
+  const requests = data && Array.isArray(data.requests) ? data.requests : [];
+  renderPendingTransactionsContent(section, requests, flashMessage);
+}
+
 /* ========= Menu ========= */
 function initMenu(){
   document.querySelectorAll('a[data-view]').forEach(a=>{
@@ -1725,6 +1919,7 @@ function initMenu(){
       if (v==='mercado_btc') return viewMercadoBTC();
       if (v==='trades') return viewTrades();
       if (v==='user_assets') return viewUserAssets();
+      if (v==='pending_transactions') return viewPendingTransactions();
       if (v==='liquidity_game') return viewLiquidityGame();
       if (v==='admin') return viewAdmin();
     });
