@@ -450,12 +450,17 @@ function get_pending_special_asset_actions(PDO $pdo, int $userId): array {
     }
     $approvals = get_special_asset_action_approvals($pdo, $requestId);
     $canConfirm = false;
+    $alreadyConfirmed = false;
     foreach ($approvals as $approval) {
-      if ((int)($approval['user_id'] ?? 0) === $userId && empty($approval['confirmed'])) {
-        $canConfirm = true;
+      if ((int)($approval['user_id'] ?? 0) === $userId) {
+        $alreadyConfirmed = !empty($approval['confirmed']);
+        if (!$alreadyConfirmed) {
+          $canConfirm = true;
+        }
         break;
       }
     }
+    $canCancel = in_array($row['status'] ?? 'pending', ['pending', 'confirmed'], true) && !$alreadyConfirmed;
     $entry = [
       'id' => $requestId,
       'asset' => (string)($row['asset'] ?? ''),
@@ -467,6 +472,8 @@ function get_pending_special_asset_actions(PDO $pdo, int $userId): array {
       'last_error' => $row['last_error'] ?? null,
       'approvals' => $approvals,
       'can_confirm' => $canConfirm,
+      'can_cancel' => $canCancel,
+      'already_confirmed' => $alreadyConfirmed,
       'initiator' => build_user_display_data((int)($row['user_id'] ?? 0), $row['initiator_name'] ?? null, $row['initiator_email'] ?? null),
     ];
     if (!empty($row['counterparty_id'])) {
@@ -477,6 +484,75 @@ function get_pending_special_asset_actions(PDO $pdo, int $userId): array {
     $result[] = $entry;
   }
   return $result;
+}
+
+function cancel_special_asset_action_request(PDO $pdo, int $requestId, int $userId): array {
+  ensure_special_asset_action_requests_table($pdo);
+  ensure_special_asset_action_approvals_table($pdo);
+
+  $pdo->beginTransaction();
+  try {
+    $stmt = $pdo->prepare(sprintf('SELECT * FROM %s WHERE id = ? LIMIT 1 FOR UPDATE', SPECIAL_ASSET_ACTION_REQUESTS_TABLE));
+    $stmt->execute([$requestId]);
+    $requestRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$requestRow) {
+      $pdo->rollBack();
+      throw new RuntimeException('Solicitação não encontrada.');
+    }
+
+    $status = $requestRow['status'] ?? 'pending';
+    if ($status === 'executed') {
+      $pdo->commit();
+      throw new RuntimeException('Esta solicitação já foi executada e não pode ser cancelada.');
+    }
+
+    if ($status === 'cancelled') {
+      $approvals = get_special_asset_action_approvals($pdo, $requestId, true);
+      $pdo->commit();
+      return [
+        'status' => 'cancelled',
+        'request' => $requestRow,
+        'approvals' => $approvals,
+        'already_cancelled' => true,
+      ];
+    }
+
+    $approvalStmt = $pdo->prepare(sprintf('SELECT * FROM %s WHERE request_id = ? AND user_id = ? LIMIT 1 FOR UPDATE', SPECIAL_ASSET_ACTION_APPROVALS_TABLE));
+    $approvalStmt->execute([$requestId, $userId]);
+    $approvalRow = $approvalStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$approvalRow) {
+      $pdo->rollBack();
+      throw new RuntimeException('Você não tem permissão para cancelar esta transação.');
+    }
+
+    if (!empty($approvalRow['confirmed_at'])) {
+      $pdo->rollBack();
+      throw new RuntimeException('Você já confirmou esta transação e não pode cancelá-la.');
+    }
+
+    update_special_asset_action_request_status($pdo, $requestId, 'cancelled', null, false, false, true);
+    reset_special_asset_action_approvals($pdo, $requestId);
+
+    $refresh = $pdo->prepare(sprintf('SELECT * FROM %s WHERE id = ? LIMIT 1', SPECIAL_ASSET_ACTION_REQUESTS_TABLE));
+    $refresh->execute([$requestId]);
+    $requestRow = $refresh->fetch(PDO::FETCH_ASSOC) ?: $requestRow;
+
+    $approvals = get_special_asset_action_approvals($pdo, $requestId, true);
+
+    $pdo->commit();
+  } catch (Exception $e) {
+    if ($pdo->inTransaction()) {
+      $pdo->rollBack();
+    }
+    throw $e;
+  }
+
+  return [
+    'status' => 'cancelled',
+    'request' => $requestRow,
+    'approvals' => $approvals,
+  ];
 }
 
 function confirm_special_asset_action_request(PDO $pdo, int $requestId, int $userId): array {
