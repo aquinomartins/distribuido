@@ -6,6 +6,8 @@ const SPECIAL_LIQUIDITY_USER_EMAIL = 'guardiao.liquidez@piscina.local';
 const SPECIAL_LIQUIDITY_GUARDIAN_TABLE = 'special_liquidity_guardian';
 const SPECIAL_ASSET_ACTION_REQUESTS_TABLE = 'special_asset_action_requests';
 
+const SPECIAL_ASSET_ACTION_APPROVALS_TABLE = 'special_asset_action_approvals';
+
 function format_special_asset_label(string $asset): string {
   switch (strtolower($asset)) {
     case 'bitcoin':
@@ -192,14 +194,6 @@ function ensure_special_asset_action_requests_table(PDO $pdo): void {
   $pdo->exec($sql);
 }
 
-function build_special_asset_confirmation_link(string $token): string {
-  $scheme = 'http';
-  if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') {
-    $scheme = 'https';
-  }
-  $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-  return sprintf('%s://%s/api/confirm_special_asset_action.php?token=%s', $scheme, $host, urlencode($token));
-}
 
 function create_special_asset_action_request(PDO $pdo, int $userId, array $payload): array {
   ensure_special_asset_action_requests_table($pdo);
@@ -251,13 +245,6 @@ function create_special_asset_action_request(PDO $pdo, int $userId, array $paylo
     }
   }
 
-  $stmt = $pdo->prepare('SELECT name, email FROM users WHERE id = ? LIMIT 1');
-  $stmt->execute([$userId]);
-  $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
-  if (!$userRow || empty($userRow['email'])) {
-    throw new RuntimeException('Usuário sem e-mail cadastrado.');
-  }
-
   $token = bin2hex(random_bytes(16));
   $payloadForStorage = [
     'asset' => $asset,
@@ -276,8 +263,8 @@ function create_special_asset_action_request(PDO $pdo, int $userId, array $paylo
   $totalBrlFormatted = $totalBrlValue !== null ? number_format($totalBrlValue, 8, '.', '') : null;
 
   $insert = $pdo->prepare(sprintf(
-    'INSERT INTO %s (user_id, asset, action, amount, total_brl, counterparty_id, payload_json, token)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO %s (user_id, asset, action, amount, total_brl, counterparty_id, payload_json, token)'
+     . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     SPECIAL_ASSET_ACTION_REQUESTS_TABLE
   ));
   $insert->execute([
@@ -293,48 +280,11 @@ function create_special_asset_action_request(PDO $pdo, int $userId, array $paylo
 
   $requestId = (int)$pdo->lastInsertId();
 
-  $name = $userRow['name'] ?? '';
-  $email = $userRow['email'];
-  $link = build_special_asset_confirmation_link($token);
-  $subject = 'Confirme sua operação de ativos especiais';
-
-  $amountText = number_format($amountValue, 8, ',', '.');
-  $lines = [
-    'Olá ' . ($name ? $name : 'usuário') . ',',
-    '',
-    'Recebemos uma solicitação para realizar a seguinte operação com ativos especiais:',
-    sprintf('- Ativo: %s', strtoupper($asset)),
-    sprintf('- Ação: %s', strtoupper($action)),
-    sprintf('- Quantidade: %s', $amountText)
-  ];
-
-  if ($totalBrlValue !== null) {
-    $lines[] = sprintf('- Total em R$: %s', number_format($totalBrlValue, 2, ',', '.'));
-  }
-  if ($counterpartyIdValue !== null) {
-    $lines[] = sprintf('- Usuário envolvido (ID): %d', $counterpartyIdValue);
-  }
-
-  $lines[] = '';
-  $lines[] = 'Para confirmar a transação, clique no link abaixo:';
-  $lines[] = $link;
-  $lines[] = '';
-  $lines[] = 'Caso não tenha solicitado, ignore este e-mail.';
-
-  $message = implode("\n", $lines);
-  $headers = "Content-Type: text/plain; charset=UTF-8\r\n" .
-             "From: no-reply@distribuido.local\r\n";
-
-  $sent = @mail($email, $subject, $message, $headers);
-  if (!$sent) {
-    update_special_asset_action_request_status($pdo, $requestId, 'cancelled', 'Falha no envio do e-mail de confirmação.');
-    throw new RuntimeException('Não foi possível enviar o e-mail de confirmação.');
-  }
+  initialize_special_asset_action_approvals($pdo, $requestId, [$userId, $counterpartyIdValue]);
 
   return [
     'id' => $requestId,
-    'token' => $token,
-    'email' => $email
+    'token' => $token
   ];
 }
 
@@ -371,6 +321,316 @@ function update_special_asset_action_request_status(PDO $pdo, int $requestId, st
   $sql = sprintf('UPDATE %s SET %s WHERE id = ?', SPECIAL_ASSET_ACTION_REQUESTS_TABLE, implode(', ', $fields));
   $stmt = $pdo->prepare($sql);
   $stmt->execute($params);
+}
+
+function ensure_special_asset_action_approvals_table(PDO $pdo): void {
+  $sql = sprintf(
+    'CREATE TABLE IF NOT EXISTS %s (
+      id BIGINT PRIMARY KEY AUTO_INCREMENT,
+      request_id BIGINT NOT NULL,
+      user_id BIGINT NOT NULL,
+      confirmed_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_request_user (request_id, user_id),
+      CONSTRAINT fk_special_asset_action_request FOREIGN KEY (request_id) REFERENCES %s(id) ON DELETE CASCADE,
+      CONSTRAINT fk_special_asset_action_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+    SPECIAL_ASSET_ACTION_APPROVALS_TABLE,
+    SPECIAL_ASSET_ACTION_REQUESTS_TABLE
+  );
+  $pdo->exec($sql);
+}
+
+function initialize_special_asset_action_approvals(PDO $pdo, int $requestId, array $userIds): void {
+  ensure_special_asset_action_approvals_table($pdo);
+  $unique = [];
+  foreach ($userIds as $value) {
+    if ($value === null) {
+      continue;
+    }
+    $id = (int)$value;
+    if ($id <= 0) {
+      continue;
+    }
+    $unique[$id] = true;
+  }
+  if (!$unique) {
+    return;
+  }
+  $sql = sprintf(
+    'INSERT INTO %s (request_id, user_id) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE updated_at = VALUES(updated_at)',
+    SPECIAL_ASSET_ACTION_APPROVALS_TABLE
+  );
+  $stmt = $pdo->prepare($sql);
+  foreach (array_keys($unique) as $uid) {
+    $stmt->execute([$requestId, $uid]);
+  }
+}
+
+function build_user_display_data(int $userId, ?string $name, ?string $email): array {
+  $name = trim((string)($name ?? ''));
+  $email = trim((string)($email ?? ''));
+  $display = $name !== '' ? $name : ($email !== '' ? $email : sprintf('Usuário #%d', $userId));
+  return [
+    'user_id' => $userId,
+    'name' => $name,
+    'email' => $email,
+    'display_name' => $display
+  ];
+}
+
+function get_special_asset_action_approvals(PDO $pdo, int $requestId, bool $forUpdate = false): array {
+  ensure_special_asset_action_approvals_table($pdo);
+  $sql = sprintf(
+    'SELECT a.user_id, a.confirmed_at, u.name, u.email
+     FROM %s a
+     LEFT JOIN users u ON u.id = a.user_id
+     WHERE a.request_id = ?',
+    SPECIAL_ASSET_ACTION_APPROVALS_TABLE
+  );
+  if ($forUpdate) {
+    $sql .= ' FOR UPDATE';
+  }
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute([$requestId]);
+  $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  if (!$rows) {
+    return [];
+  }
+  $approvals = [];
+  foreach ($rows as $row) {
+    $userId = isset($row['user_id']) ? (int)$row['user_id'] : 0;
+    if ($userId <= 0) {
+      continue;
+    }
+    $confirmedAt = $row['confirmed_at'] ?? null;
+    $info = build_user_display_data($userId, $row['name'] ?? null, $row['email'] ?? null);
+    $info['confirmed'] = $confirmedAt !== null;
+    $info['confirmed_at'] = $confirmedAt !== null ? (string)$confirmedAt : null;
+    $approvals[] = $info;
+  }
+  return $approvals;
+}
+
+function reset_special_asset_action_approvals(PDO $pdo, int $requestId): void {
+  ensure_special_asset_action_approvals_table($pdo);
+  $stmt = $pdo->prepare(sprintf('UPDATE %s SET confirmed_at = NULL WHERE request_id = ?', SPECIAL_ASSET_ACTION_APPROVALS_TABLE));
+  $stmt->execute([$requestId]);
+}
+
+function get_pending_special_asset_actions(PDO $pdo, int $userId): array {
+  ensure_special_asset_action_requests_table($pdo);
+  ensure_special_asset_action_approvals_table($pdo);
+
+  $sql = sprintf(
+    'SELECT r.*,
+            initiator.name AS initiator_name, initiator.email AS initiator_email,
+            counterparty.name AS counterparty_name, counterparty.email AS counterparty_email
+     FROM %s r
+     LEFT JOIN users initiator ON initiator.id = r.user_id
+     LEFT JOIN users counterparty ON counterparty.id = r.counterparty_id
+     WHERE r.status IN (\'pending\', \'confirmed\')
+       AND EXISTS (
+         SELECT 1 FROM %s a WHERE a.request_id = r.id AND a.user_id = ?
+       )
+     ORDER BY r.created_at DESC',
+    SPECIAL_ASSET_ACTION_REQUESTS_TABLE,
+    SPECIAL_ASSET_ACTION_APPROVALS_TABLE
+  );
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute([$userId]);
+  $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  $result = [];
+  foreach ($rows as $row) {
+    $requestId = isset($row['id']) ? (int)$row['id'] : 0;
+    if ($requestId <= 0) {
+      continue;
+    }
+    $approvals = get_special_asset_action_approvals($pdo, $requestId);
+    $canConfirm = false;
+    foreach ($approvals as $approval) {
+      if ((int)($approval['user_id'] ?? 0) === $userId && empty($approval['confirmed'])) {
+        $canConfirm = true;
+        break;
+      }
+    }
+    $entry = [
+      'id' => $requestId,
+      'asset' => (string)($row['asset'] ?? ''),
+      'action' => (string)($row['action'] ?? ''),
+      'amount' => isset($row['amount']) ? (float)$row['amount'] : 0.0,
+      'total_brl' => isset($row['total_brl']) && $row['total_brl'] !== null ? (float)$row['total_brl'] : null,
+      'status' => (string)($row['status'] ?? 'pending'),
+      'created_at' => $row['created_at'] ?? null,
+      'last_error' => $row['last_error'] ?? null,
+      'approvals' => $approvals,
+      'can_confirm' => $canConfirm,
+      'initiator' => build_user_display_data((int)($row['user_id'] ?? 0), $row['initiator_name'] ?? null, $row['initiator_email'] ?? null),
+    ];
+    if (!empty($row['counterparty_id'])) {
+      $entry['counterparty'] = build_user_display_data((int)$row['counterparty_id'], $row['counterparty_name'] ?? null, $row['counterparty_email'] ?? null);
+    } else {
+      $entry['counterparty'] = null;
+    }
+    $result[] = $entry;
+  }
+  return $result;
+}
+
+function confirm_special_asset_action_request(PDO $pdo, int $requestId, int $userId): array {
+  ensure_special_asset_action_requests_table($pdo);
+  ensure_special_asset_action_approvals_table($pdo);
+
+  $shouldExecute = false;
+  $requestRow = null;
+  $approvals = [];
+
+  $pdo->beginTransaction();
+  try {
+    $stmt = $pdo->prepare(sprintf('SELECT * FROM %s WHERE id = ? LIMIT 1 FOR UPDATE', SPECIAL_ASSET_ACTION_REQUESTS_TABLE));
+    $stmt->execute([$requestId]);
+    $requestRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$requestRow) {
+      $pdo->commit();
+      throw new RuntimeException('Solicitação não encontrada.');
+    }
+
+    $status = $requestRow['status'] ?? 'pending';
+    if ($status === 'cancelled') {
+      $pdo->commit();
+      throw new RuntimeException('Esta solicitação foi cancelada.');
+    }
+
+    if ($status === 'executed') {
+      $approvals = get_special_asset_action_approvals($pdo, $requestId, true);
+      $pdo->commit();
+      return [
+        'status' => 'executed',
+        'request' => $requestRow,
+        'approvals' => $approvals,
+        'already_executed' => true
+      ];
+    }
+
+    $approvalStmt = $pdo->prepare(sprintf('SELECT * FROM %s WHERE request_id = ? AND user_id = ? LIMIT 1 FOR UPDATE', SPECIAL_ASSET_ACTION_APPROVALS_TABLE));
+    $approvalStmt->execute([$requestId, $userId]);
+    $approvalRow = $approvalStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$approvalRow) {
+      $pdo->rollBack();
+      throw new RuntimeException('Você não tem permissão para confirmar esta transação.');
+    }
+
+    if (!empty($approvalRow['confirmed_at'])) {
+      $approvals = get_special_asset_action_approvals($pdo, $requestId, true);
+      $pdo->commit();
+      return [
+        'status' => $status,
+        'request' => $requestRow,
+        'approvals' => $approvals,
+        'already_confirmed' => true
+      ];
+    }
+
+    $update = $pdo->prepare(sprintf('UPDATE %s SET confirmed_at = NOW() WHERE id = ?', SPECIAL_ASSET_ACTION_APPROVALS_TABLE));
+    $update->execute([(int)$approvalRow['id']]);
+
+    $pendingStmt = $pdo->prepare(sprintf('SELECT COUNT(*) FROM %s WHERE request_id = ? AND confirmed_at IS NULL', SPECIAL_ASSET_ACTION_APPROVALS_TABLE));
+    $pendingStmt->execute([$requestId]);
+    $pending = (int)$pendingStmt->fetchColumn();
+
+    if ($pending === 0) {
+      update_special_asset_action_request_status($pdo, $requestId, 'confirmed', null, true, false, false);
+      $shouldExecute = true;
+      $requestRow['status'] = 'confirmed';
+    } else {
+      update_special_asset_action_request_status($pdo, $requestId, 'confirmed', null, false, false, false);
+      $requestRow['status'] = 'confirmed';
+    }
+
+    $approvals = get_special_asset_action_approvals($pdo, $requestId, true);
+    $pdo->commit();
+  } catch (Exception $e) {
+    if ($pdo->inTransaction()) {
+      $pdo->rollBack();
+    }
+    throw $e;
+  }
+
+  if ($shouldExecute) {
+    $execution = execute_special_asset_action_request($pdo, $requestId);
+    return [
+      'status' => 'executed',
+      'request' => $execution['request'],
+      'approvals' => $execution['approvals'],
+      'result' => $execution['result'] ?? null
+    ];
+  }
+
+  return [
+    'status' => $requestRow['status'] ?? 'confirmed',
+    'request' => $requestRow,
+    'approvals' => $approvals
+  ];
+}
+
+function execute_special_asset_action_request(PDO $pdo, int $requestId): array {
+  ensure_special_asset_action_requests_table($pdo);
+  ensure_special_asset_action_approvals_table($pdo);
+
+  $stmt = $pdo->prepare(sprintf('SELECT * FROM %s WHERE id = ? LIMIT 1', SPECIAL_ASSET_ACTION_REQUESTS_TABLE));
+  $stmt->execute([$requestId]);
+  $requestRow = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$requestRow) {
+    throw new RuntimeException('Solicitação não encontrada.');
+  }
+
+  if (($requestRow['status'] ?? '') === 'executed') {
+    return [
+      'request' => $requestRow,
+      'result' => null,
+      'approvals' => get_special_asset_action_approvals($pdo, $requestId)
+    ];
+  }
+
+  $payload = json_decode($requestRow['payload_json'] ?? 'null', true);
+  if (!is_array($payload)) {
+    update_special_asset_action_request_status($pdo, $requestId, 'cancelled', 'Payload inválido.', false, false, true);
+    reset_special_asset_action_approvals($pdo, $requestId);
+    throw new RuntimeException('Não foi possível processar esta solicitação.');
+  }
+
+  try {
+    $result = apply_special_asset_action(
+      $pdo,
+      (int)$requestRow['user_id'],
+      (string)($payload['asset'] ?? ''),
+      (string)($payload['action'] ?? ''),
+      $payload['amount'] ?? null,
+      $payload['total_brl'] ?? null,
+      $payload['counterparty_id'] ?? null
+    );
+    update_special_asset_action_request_status($pdo, $requestId, 'executed', null, false, true, false);
+
+    $stmt = $pdo->prepare(sprintf('SELECT * FROM %s WHERE id = ? LIMIT 1', SPECIAL_ASSET_ACTION_REQUESTS_TABLE));
+    $stmt->execute([$requestId]);
+    $updatedRequest = $stmt->fetch(PDO::FETCH_ASSOC) ?: $requestRow;
+    $approvals = get_special_asset_action_approvals($pdo, $requestId);
+
+    send_special_asset_transaction_notifications($pdo, $updatedRequest, $payload, $result);
+
+    return [
+      'request' => $updatedRequest,
+      'result' => $result,
+      'approvals' => $approvals
+    ];
+  } catch (Exception $e) {
+    update_special_asset_action_request_status($pdo, $requestId, 'pending', $e->getMessage(), false, false, true);
+    reset_special_asset_action_approvals($pdo, $requestId);
+    throw $e;
+  }
 }
 
 function ensure_special_liquidity_guardian_table(PDO $pdo): void {

@@ -28,7 +28,7 @@ try {
   echo json_encode([
     'status' => 'pending_confirmation',
     'request_id' => $request['id'],
-    'detail' => 'Solicitação registrada. Verifique seu e-mail para confirmar a operação.',
+    'detail' => 'Solicitação registrada. Confirme na aba "Transações pendentes" quando estiver pronto.',
   ]);
 } catch (InvalidArgumentException $e) {
   http_response_code(422);
