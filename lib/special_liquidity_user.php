@@ -6,6 +6,168 @@ const SPECIAL_LIQUIDITY_USER_EMAIL = 'guardiao.liquidez@piscina.local';
 const SPECIAL_LIQUIDITY_GUARDIAN_TABLE = 'special_liquidity_guardian';
 const SPECIAL_ASSET_ACTION_REQUESTS_TABLE = 'special_asset_action_requests';
 
+function format_special_asset_label(string $asset): string {
+  switch (strtolower($asset)) {
+    case 'bitcoin':
+      return 'Bitcoin (BTC)';
+    case 'nft':
+      return 'NFTs';
+    case 'brl':
+      return 'Reais (BRL)';
+    case 'quotas':
+      return 'Cotas';
+    default:
+      return strtoupper($asset);
+  }
+}
+
+function format_special_asset_action_label(string $action): string {
+  switch (strtolower($action)) {
+    case 'buy':
+      return 'Compra';
+    case 'sell':
+      return 'Venda';
+    case 'deposit':
+      return 'Depósito';
+    default:
+      return ucfirst($action);
+  }
+}
+
+function format_special_asset_amount(string $asset, float $amount): string {
+  $asset = strtolower($asset);
+  if ($asset === 'nft') {
+    return number_format((float)round($amount), 0, ',', '.');
+  }
+  if ($asset === 'brl') {
+    return number_format($amount, 2, ',', '.');
+  }
+  return number_format($amount, 8, ',', '.');
+}
+
+function fetch_user_contact(PDO $pdo, int $userId): ?array {
+  $stmt = $pdo->prepare('SELECT id, name, email FROM users WHERE id = ? LIMIT 1');
+  $stmt->execute([$userId]);
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$row) {
+    return null;
+  }
+  $name = trim((string)($row['name'] ?? ''));
+  $email = isset($row['email']) ? trim((string)$row['email']) : '';
+  $displayName = $name !== '' ? $name : ($email !== '' ? $email : sprintf('Usuário #%d', $userId));
+  return [
+    'id' => $userId,
+    'name' => $name,
+    'display_name' => $displayName,
+    'email' => $email,
+  ];
+}
+
+function format_special_asset_balances(array $balances): array {
+  $bitcoin = number_format((float)($balances['bitcoin'] ?? 0), 8, ',', '.');
+  $nft = (int)round((float)($balances['nft'] ?? 0));
+  $brl = number_format((float)($balances['brl'] ?? 0), 2, ',', '.');
+  $quotas = number_format((float)($balances['quotas'] ?? 0), 8, ',', '.');
+
+  return [
+    sprintf('- Bitcoin: %s BTC', $bitcoin),
+    sprintf('- NFTs: %d', $nft),
+    sprintf('- Reais: %s', $brl),
+    sprintf('- Cotas: %s', $quotas),
+  ];
+}
+
+function send_special_asset_transaction_notifications(PDO $pdo, array $requestRow, array $payload, array $userBalances): void {
+  $asset = strtolower((string)($payload['asset'] ?? $requestRow['asset'] ?? ''));
+  $action = strtolower((string)($payload['action'] ?? $requestRow['action'] ?? ''));
+
+  $amountRaw = $payload['amount'] ?? ($requestRow['amount'] ?? null);
+  $amount = is_numeric($amountRaw) ? (float)$amountRaw : 0.0;
+
+  $totalBrlRaw = $payload['total_brl'] ?? ($requestRow['total_brl'] ?? null);
+  $totalBrl = is_numeric($totalBrlRaw) ? (float)$totalBrlRaw : null;
+
+  $counterpartyRaw = $payload['counterparty_id'] ?? ($requestRow['counterparty_id'] ?? null);
+  $counterpartyId = is_numeric($counterpartyRaw) ? (int)$counterpartyRaw : null;
+
+  $userId = (int)($requestRow['user_id'] ?? 0);
+  $userContact = $userId > 0 ? fetch_user_contact($pdo, $userId) : null;
+
+  $counterpartyContact = null;
+  $counterpartyBalances = null;
+  if ($counterpartyId !== null && $counterpartyId > 0) {
+    $counterpartyContact = fetch_user_contact($pdo, $counterpartyId);
+    $counterpartyBalances = $counterpartyContact ? get_special_liquidity_assets($pdo, $counterpartyId) : null;
+  }
+
+  $assetLabel = format_special_asset_label($asset);
+  $actionLabel = format_special_asset_action_label($action);
+  $amountText = format_special_asset_amount($asset, $amount);
+  $totalBrlText = $totalBrl !== null ? number_format($totalBrl, 2, ',', '.') : null;
+
+  $subject = 'Operação concluída - Ativos Especiais';
+  $headers = "Content-Type: text/plain; charset=UTF-8\r\n" .
+             "From: no-reply@distribuido.local\r\n";
+
+  if ($userContact && $userContact['email'] !== '') {
+    $lines = [
+      'Olá ' . $userContact['display_name'] . ',',
+      '',
+      'Sua operação com ativos especiais foi concluída com sucesso.',
+      'Detalhes:',
+      sprintf('- Ativo: %s', $assetLabel),
+      sprintf('- Ação: %s', $actionLabel),
+      sprintf('- Quantidade: %s', $amountText),
+    ];
+    if ($totalBrlText !== null) {
+      $lines[] = sprintf('- Valor total em R$: %s', $totalBrlText);
+    }
+    if ($counterpartyContact) {
+      $lines[] = sprintf('- Usuário envolvido: %s', $counterpartyContact['display_name']);
+    }
+    $lines[] = '';
+    $lines[] = 'Saldos atualizados da sua conta:';
+    $lines = array_merge($lines, format_special_asset_balances($userBalances));
+    $lines[] = '';
+    $lines[] = 'Esta é uma mensagem automática. Não responda este e-mail.';
+
+    $message = implode("\n", $lines);
+    if (@mail($userContact['email'], $subject, $message, $headers) === false) {
+      error_log(sprintf('Falha ao enviar e-mail da operação especial para o usuário %d.', $userContact['id']));
+    }
+  }
+
+  if ($counterpartyContact && $counterpartyContact['email'] !== '') {
+    $counterpartyLines = [
+      'Olá ' . $counterpartyContact['display_name'] . ',',
+      '',
+      'Uma operação de ativos especiais envolvendo sua conta foi concluída.',
+      'Detalhes:',
+      sprintf('- Ativo: %s', $assetLabel),
+      sprintf('- Ação: %s', $actionLabel),
+      sprintf('- Quantidade: %s', $amountText),
+    ];
+    if ($totalBrlText !== null) {
+      $counterpartyLines[] = sprintf('- Valor total em R$: %s', $totalBrlText);
+    }
+    if ($userContact) {
+      $counterpartyLines[] = sprintf('- Usuário solicitante: %s', $userContact['display_name']);
+    }
+    if (is_array($counterpartyBalances)) {
+      $counterpartyLines[] = '';
+      $counterpartyLines[] = 'Saldos atualizados da sua conta:';
+      $counterpartyLines = array_merge($counterpartyLines, format_special_asset_balances($counterpartyBalances));
+    }
+    $counterpartyLines[] = '';
+    $counterpartyLines[] = 'Esta é uma mensagem automática. Não responda este e-mail.';
+
+    $counterpartyMessage = implode("\n", $counterpartyLines);
+    if (@mail($counterpartyContact['email'], $subject, $counterpartyMessage, $headers) === false) {
+      error_log(sprintf('Falha ao enviar e-mail da operação especial para o usuário %d.', $counterpartyContact['id']));
+    }
+  }
+}
+
 function ensure_special_asset_action_requests_table(PDO $pdo): void {
   $sql = sprintf(
     'CREATE TABLE IF NOT EXISTS %s (

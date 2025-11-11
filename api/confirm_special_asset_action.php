@@ -66,6 +66,7 @@ try {
     $payload['counterparty_id'] ?? null
   );
   update_special_asset_action_request_status($pdo, (int)$row['id'], 'executed', null, false, true);
+  send_special_asset_transaction_notifications($pdo, $row, $payload, $result);
 
   $balances = sprintf(
     '<ul><li>Bitcoin: %s</li><li>NFTs: %s</li><li>Reais (R$): %s</li><li>Cotas: %s</li></ul>',
