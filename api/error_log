@@ -1,0 +1,111 @@
+[29-Oct-2025 02:19:36 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/balance.php on line 3
+[29-Oct-2025 02:19:36 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/balance.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:19:38 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/bitcoin.php on line 3
+[29-Oct-2025 02:19:38 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/bitcoin.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:19:40 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/nfts.php on line 3
+[29-Oct-2025 02:19:40 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/nfts.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:19:41 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/auctions.php on line 3
+[29-Oct-2025 02:19:41 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/auctions.php(4): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:19:42 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/balance.php on line 3
+[29-Oct-2025 02:19:42 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/balance.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:19:44 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/balance.php on line 3
+[29-Oct-2025 02:19:44 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/balance.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:19:44 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/balance.php on line 3
+[29-Oct-2025 02:19:44 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/balance.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:21:30 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/balance.php on line 3
+[29-Oct-2025 02:21:30 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/balance.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:21:35 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/balance.php on line 3
+[29-Oct-2025 02:21:35 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/balance.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 02:28:18 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/oftalmol/aquino.bsb.br/lib/db.php:1) in /home/oftalmol/aquino.bsb.br/api/balance.php on line 3
+[29-Oct-2025 02:28:18 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [1045] Access denied for user '
+oftalmol_aquino'@'localhost' (using password: YES) in /home/oftalmol/aquino.bsb.br/lib/db.php:28
+Stack trace:
+#0 /home/oftalmol/aquino.bsb.br/lib/db.php(28): PDO->__construct('mysql:host=loca...', '\r\noftalmol_aqui...', '#Fend721fine170', Array)
+#1 /home/oftalmol/aquino.bsb.br/api/balance.php(6): db()
+#2 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/lib/db.php on line 28
+[29-Oct-2025 03:55:23 UTC] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on null in /home/oftalmol/aquino.bsb.br/api/register.php:18
+Stack trace:
+#0 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/api/register.php on line 18
+[29-Oct-2025 11:50:05 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function create_user_with_accounts() in /home/oftalmol/aquino.bsb.br/api/register.php:25
+Stack trace:
+#0 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/api/register.php on line 25
+[30-Oct-2025 16:38:46 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function create_user_with_accounts() in /home/oftalmol/aquino.bsb.br/api/register.php:25
+Stack trace:
+#0 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/api/register.php on line 25
+[30-Oct-2025 16:39:02 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function create_user_with_accounts() in /home/oftalmol/aquino.bsb.br/api/register.php:25
+Stack trace:
+#0 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/api/register.php on line 25
+[30-Oct-2025 16:40:04 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function create_user_with_accounts() in /home/oftalmol/aquino.bsb.br/api/register.php:25
+Stack trace:
+#0 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/api/register.php on line 25
+[30-Oct-2025 16:40:22 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function create_user_with_accounts() in /home/oftalmol/aquino.bsb.br/api/register.php:25
+Stack trace:
+#0 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/api/register.php on line 25
+[01-Nov-2025 15:52:33 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function create_user_with_accounts() in /home/oftalmol/aquino.bsb.br/api/register.php:25
+Stack trace:
+#0 {main}
+  thrown in /home/oftalmol/aquino.bsb.br/api/register.php on line 25
+[05-Nov-2025 15:58:06 UTC] PHP Warning:  Use of undefined constant SPECIAL_LIQUIDITY_USER_EMAIL - assumed 'SPECIAL_LIQUIDITY_USER_EMAIL' (this will throw an Error in a future version of PHP) in /home/oftalmol/aquino.bsb.br/fase1/api/session.php on line 21
+[06-Nov-2025 13:38:59 UTC] PHP Warning:  Use of undefined constant SPECIAL_LIQUIDITY_USER_EMAIL - assumed 'SPECIAL_LIQUIDITY_USER_EMAIL' (this will throw an Error in a future version of PHP) in /home/oftalmol/aquino.bsb.br/fase1/api/session.php on line 21
+[06-Nov-2025 14:35:12 UTC] PHP Warning:  Use of undefined constant SPECIAL_LIQUIDITY_USER_EMAIL - assumed 'SPECIAL_LIQUIDITY_USER_EMAIL' (this will throw an Error in a future version of PHP) in /home/oftalmol/aquino.bsb.br/fase1/api/session.php on line 21
