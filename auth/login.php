@@ -61,4 +61,3 @@ echo json_encode([
   'is_admin' => intval($user['is_admin'] ?? 0) === 1,
   'name' => $user['name'] ?? null
 ]);
-
