@@ -4,6 +4,212 @@ require_once __DIR__ . '/db.php';
 const SPECIAL_LIQUIDITY_USER_EMAIL = 'guardiao.liquidez@piscina.local';
 
 const SPECIAL_LIQUIDITY_GUARDIAN_TABLE = 'special_liquidity_guardian';
+const SPECIAL_ASSET_ACTION_REQUESTS_TABLE = 'special_asset_action_requests';
+
+function ensure_special_asset_action_requests_table(PDO $pdo): void {
+  $sql = sprintf(
+    'CREATE TABLE IF NOT EXISTS %s (
+      id BIGINT PRIMARY KEY AUTO_INCREMENT,
+      user_id BIGINT NOT NULL,
+      asset VARCHAR(32) NOT NULL,
+      action VARCHAR(16) NOT NULL,
+      amount DECIMAL(24,8) NOT NULL,
+      total_brl DECIMAL(24,8) NULL,
+      counterparty_id BIGINT NULL,
+      payload_json JSON NOT NULL,
+      token VARCHAR(64) NOT NULL UNIQUE,
+      status ENUM(\'pending\', \'confirmed\', \'executed\', \'cancelled\') NOT NULL DEFAULT \'pending\',
+      last_error TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      confirmed_at DATETIME NULL,
+      executed_at DATETIME NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+    SPECIAL_ASSET_ACTION_REQUESTS_TABLE
+  );
+  $pdo->exec($sql);
+}
+
+function build_special_asset_confirmation_link(string $token): string {
+  $scheme = 'http';
+  if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') {
+    $scheme = 'https';
+  }
+  $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+  return sprintf('%s://%s/api/confirm_special_asset_action.php?token=%s', $scheme, $host, urlencode($token));
+}
+
+function create_special_asset_action_request(PDO $pdo, int $userId, array $payload): array {
+  ensure_special_asset_action_requests_table($pdo);
+
+  $asset = strtolower((string)($payload['asset'] ?? ''));
+  $action = strtolower((string)($payload['action'] ?? ''));
+  $amount = $payload['amount'] ?? null;
+  $totalBrl = $payload['total_brl'] ?? null;
+  $counterpartyId = $payload['counterparty_id'] ?? null;
+
+  $allowedAssets = ['bitcoin', 'nft', 'brl', 'quotas'];
+  if (!in_array($asset, $allowedAssets, true)) {
+    throw new InvalidArgumentException('Ativo inválido.');
+  }
+
+  $allowedActions = ['buy', 'sell', 'deposit'];
+  if (!in_array($action, $allowedActions, true)) {
+    throw new InvalidArgumentException('Ação inválida.');
+  }
+
+  if (!is_numeric($amount)) {
+    throw new InvalidArgumentException('Informe uma quantidade válida.');
+  }
+
+  $amountValue = (float)$amount;
+  if ($amountValue <= 0) {
+    throw new InvalidArgumentException('A quantidade deve ser maior que zero.');
+  }
+
+  $totalBrlValue = null;
+  if ($totalBrl !== null && $totalBrl !== '') {
+    if (!is_numeric($totalBrl)) {
+      throw new InvalidArgumentException('Valor em reais inválido.');
+    }
+    $totalBrlValue = (float)$totalBrl;
+    if ($totalBrlValue < 0) {
+      throw new InvalidArgumentException('O valor em reais deve ser positivo.');
+    }
+  }
+
+  $counterpartyIdValue = null;
+  if ($counterpartyId !== null && $counterpartyId !== '') {
+    if (!is_numeric($counterpartyId)) {
+      throw new InvalidArgumentException('Usuário selecionado inválido.');
+    }
+    $counterpartyIdValue = (int)$counterpartyId;
+    if ($counterpartyIdValue <= 0) {
+      $counterpartyIdValue = null;
+    }
+  }
+
+  $stmt = $pdo->prepare('SELECT name, email FROM users WHERE id = ? LIMIT 1');
+  $stmt->execute([$userId]);
+  $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$userRow || empty($userRow['email'])) {
+    throw new RuntimeException('Usuário sem e-mail cadastrado.');
+  }
+
+  $token = bin2hex(random_bytes(16));
+  $payloadForStorage = [
+    'asset' => $asset,
+    'action' => $action,
+    'amount' => $amountValue,
+    'total_brl' => $totalBrlValue,
+    'counterparty_id' => $counterpartyIdValue
+  ];
+
+  $payloadJson = json_encode($payloadForStorage, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  if ($payloadJson === false) {
+    throw new RuntimeException('Falha ao codificar a solicitação.');
+  }
+
+  $amountFormatted = number_format($amountValue, 8, '.', '');
+  $totalBrlFormatted = $totalBrlValue !== null ? number_format($totalBrlValue, 8, '.', '') : null;
+
+  $insert = $pdo->prepare(sprintf(
+    'INSERT INTO %s (user_id, asset, action, amount, total_brl, counterparty_id, payload_json, token)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    SPECIAL_ASSET_ACTION_REQUESTS_TABLE
+  ));
+  $insert->execute([
+    $userId,
+    $asset,
+    $action,
+    $amountFormatted,
+    $totalBrlFormatted,
+    $counterpartyIdValue,
+    $payloadJson,
+    $token
+  ]);
+
+  $requestId = (int)$pdo->lastInsertId();
+
+  $name = $userRow['name'] ?? '';
+  $email = $userRow['email'];
+  $link = build_special_asset_confirmation_link($token);
+  $subject = 'Confirme sua operação de ativos especiais';
+
+  $amountText = number_format($amountValue, 8, ',', '.');
+  $lines = [
+    'Olá ' . ($name ? $name : 'usuário') . ',',
+    '',
+    'Recebemos uma solicitação para realizar a seguinte operação com ativos especiais:',
+    sprintf('- Ativo: %s', strtoupper($asset)),
+    sprintf('- Ação: %s', strtoupper($action)),
+    sprintf('- Quantidade: %s', $amountText)
+  ];
+
+  if ($totalBrlValue !== null) {
+    $lines[] = sprintf('- Total em R$: %s', number_format($totalBrlValue, 2, ',', '.'));
+  }
+  if ($counterpartyIdValue !== null) {
+    $lines[] = sprintf('- Usuário envolvido (ID): %d', $counterpartyIdValue);
+  }
+
+  $lines[] = '';
+  $lines[] = 'Para confirmar a transação, clique no link abaixo:';
+  $lines[] = $link;
+  $lines[] = '';
+  $lines[] = 'Caso não tenha solicitado, ignore este e-mail.';
+
+  $message = implode("\n", $lines);
+  $headers = "Content-Type: text/plain; charset=UTF-8\r\n" .
+             "From: no-reply@distribuido.local\r\n";
+
+  $sent = @mail($email, $subject, $message, $headers);
+  if (!$sent) {
+    update_special_asset_action_request_status($pdo, $requestId, 'cancelled', 'Falha no envio do e-mail de confirmação.');
+    throw new RuntimeException('Não foi possível enviar o e-mail de confirmação.');
+  }
+
+  return [
+    'id' => $requestId,
+    'token' => $token,
+    'email' => $email
+  ];
+}
+
+function get_special_asset_action_request(PDO $pdo, string $token): ?array {
+  ensure_special_asset_action_requests_table($pdo);
+  $stmt = $pdo->prepare(sprintf('SELECT * FROM %s WHERE token = ? LIMIT 1', SPECIAL_ASSET_ACTION_REQUESTS_TABLE));
+  $stmt->execute([$token]);
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$row) {
+    return null;
+  }
+  return $row;
+}
+
+function update_special_asset_action_request_status(PDO $pdo, int $requestId, string $status, ?string $error = null, bool $touchConfirmedAt = false, bool $setExecutedAt = false, bool $clearConfirmedAt = false): void {
+  ensure_special_asset_action_requests_table($pdo);
+  $fields = ['status = ?'];
+  $params = [$status];
+  if ($error !== null) {
+    $fields[] = 'last_error = ?';
+    $params[] = $error;
+  } else {
+    $fields[] = 'last_error = NULL';
+  }
+  if ($touchConfirmedAt) {
+    $fields[] = 'confirmed_at = NOW()';
+  } elseif ($clearConfirmedAt) {
+    $fields[] = 'confirmed_at = NULL';
+  }
+  if ($setExecutedAt) {
+    $fields[] = 'executed_at = NOW()';
+  }
+  $params[] = $requestId;
+  $sql = sprintf('UPDATE %s SET %s WHERE id = ?', SPECIAL_ASSET_ACTION_REQUESTS_TABLE, implode(', ', $fields));
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute($params);
+}
 
 function ensure_special_liquidity_guardian_table(PDO $pdo): void {
   $sql = sprintf(
