@@ -101,7 +101,11 @@ small.hint { color:#6b7280; }
 .pending-card .participants li.confirmed small { color:#10b981; }
 .pending-card .participants li.pending small { color:#fbbf24; }
 .pending-card .msg { margin:0 0 8px; }
-.pending-card .btn-confirm { margin-top:4px; }
+.pending-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.pending-actions button { flex:1; min-width:160px; width:auto; padding:10px; }
+.pending-card .btn-confirm { margin-top:0; }
+.pending-card .btn-cancel { background:#b91c1c; color:#fff; }
+.pending-card .btn-cancel[disabled] { opacity:0.6; cursor:not-allowed; }
 .badge-waiting { background:rgba(251,191,36,0.2); color:#facc15; }
 .pending-transactions .msg { margin-bottom:12px; }
 

@@ -1783,6 +1783,10 @@ function renderPendingTransactionCard(req){
     const label = alreadyConfirmed ? 'Aguardando outros usuários' : 'Aguardando confirmação';
     confirmButton = `<button class="btn-confirm" data-request="${req.id}" disabled>${label}</button>`;
   }
+  const cancelDisabled = req.can_cancel === false;
+  const cancelButton = `<button class="btn-cancel" data-request="${req.id}" ${cancelDisabled ? 'disabled' : ''}>Cancelar transação</button>`;
+  const actionButtons = [confirmButton, cancelButton].filter(Boolean).join('');
+  const actionsSection = actionButtons ? `<div class="actions pending-actions">${actionButtons}</div>` : '';
   const lastError = req.last_error ? `<p class="msg err">${esc(req.last_error)}</p>` : '';
   const statusBadge = req.status === 'confirmed' && !req.can_confirm
     ? '<span class="badge badge-waiting">Aguardando outro participante</span>'
@@ -1806,7 +1810,7 @@ function renderPendingTransactionCard(req){
       </div>
       ${lastError}
       <p class="msg" data-role="feedback"></p>
-      ${confirmButton}
+      ${actionsSection}
     </article>
   `;
 }
@@ -1882,6 +1886,71 @@ function bindPendingTransactionActions(section){
       } finally {
         if (!completed && btn.isConnected) {
           btn.disabled = false;
+        }
+      }
+    });
+  });
+  section.querySelectorAll('button.btn-cancel[data-request]').forEach(btn => {
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    if (btn.disabled) return;
+    btn.addEventListener('click', async () => {
+      const requestId = parseInt(btn.dataset.request, 10);
+      if (!Number.isFinite(requestId)) {
+        return;
+      }
+      if (!window.confirm('Tem certeza de que deseja cancelar esta transação?')) {
+        return;
+      }
+      const card = btn.closest('.pending-card');
+      const feedback = card ? card.querySelector('[data-role="feedback"]') : null;
+      const confirmBtn = card ? card.querySelector(`button.btn-confirm[data-request="${requestId}"]`) : null;
+      const confirmWasDisabled = confirmBtn ? confirmBtn.disabled : false;
+      if (feedback) {
+        feedback.textContent = 'Cancelando transação...';
+        feedback.classList.remove('err');
+      }
+      btn.disabled = true;
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+      }
+      let completed = false;
+      try {
+        const res = await fetch(API('cancel_special_asset_action.php'), {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request_id: requestId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const flash = {
+            text: data && data.already_cancelled
+              ? 'Esta transação já havia sido cancelada anteriormente.'
+              : 'Transação cancelada com sucesso.',
+            type: data && data.already_cancelled ? 'info' : 'success'
+          };
+          const updated = Array.isArray(data.pending_requests) ? data.pending_requests : [];
+          completed = true;
+          renderPendingTransactionsContent(section, updated, flash);
+          return;
+        }
+        const detail = data && (data.detail || data.error || res.statusText);
+        if (feedback) {
+          feedback.textContent = 'Erro: ' + detail;
+          feedback.classList.add('err');
+        }
+      } catch (err) {
+        if (feedback) {
+          feedback.textContent = 'Erro inesperado ao cancelar a transação.';
+          feedback.classList.add('err');
+        }
+      } finally {
+        if (!completed && btn.isConnected) {
+          btn.disabled = false;
+        }
+        if (!completed && confirmBtn && confirmBtn.isConnected && !confirmWasDisabled) {
+          confirmBtn.disabled = false;
         }
       }
     });
