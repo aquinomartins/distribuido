@@ -1543,7 +1543,7 @@ async function viewUserAssets(){
       if (submitBtn) submitBtn.disabled = true;
 
       try {
-        const res = await fetch(API('special_asset_action.php'), {
+        const res = await fetch(API('request_special_asset_action.php'), {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -1552,10 +1552,10 @@ async function viewUserAssets(){
 
         const data = await res.json().catch(() => ({}));
 
-        if (res.ok && data && data.assets) {
-          updateSummaryView(data.assets);
+        if (res.ok) {
           if (messageBox) {
-            messageBox.textContent = 'Operação registrada com sucesso.';
+            const detail = data && (data.detail || 'Solicitação registrada. Verifique seu e-mail para confirmar a operação.');
+            messageBox.textContent = detail;
             messageBox.classList.remove('err');
           }
           form.reset();
@@ -1572,7 +1572,7 @@ async function viewUserAssets(){
         }
       } catch (err) {
         if (messageBox) {
-          messageBox.textContent = 'Erro inesperado ao enviar a operação.';
+          messageBox.textContent = 'Erro inesperado ao registrar a solicitação.';
           messageBox.classList.add('err');
         }
       } finally {
