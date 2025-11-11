@@ -34,10 +34,22 @@ if (intval($user['confirmed']) !== 1) {
 
 $hash = $user['password_hash'];
 $ok = false;
-if (strpos($hash, '$2y$') === 0 || strpos($hash, '$argon2') === 0) { $ok = password_verify($pass, $hash); }
-else { $ok = hash('sha256', $pass) === $hash || $pass === $hash; }
+if (is_string($hash) && (strpos($hash, '$2y$') === 0 || strpos($hash, '$argon2') === 0)) {
+  $ok = password_verify($pass, $hash);
+} elseif (is_string($hash) && preg_match('/^[a-f0-9]{64}$/i', $hash)) {
+  $ok = hash_equals($hash, hash('sha256', $pass));
+} else {
+  $ok = false;
+}
 
 if (!$ok) { http_response_code(401); echo json_encode(['error'=>'invalid_credentials']); exit; }
+
+if (password_needs_rehash($hash, PASSWORD_BCRYPT)) {
+  $newHash = password_hash($pass, PASSWORD_BCRYPT);
+  $upd = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+  $upd->execute([$newHash, intval($user['id'])]);
+  $hash = $newHash;
+}
 
 $_SESSION['uid'] = intval($user['id']);
 $_SESSION['name'] = $user['name'] ?? null;
