@@ -188,7 +188,6 @@ function get_special_asset_action_request(PDO $pdo, string $token): ?array {
 }
 
 function update_special_asset_action_request_status(PDO $pdo, int $requestId, string $status, ?string $error = null, bool $touchConfirmedAt = false, bool $setExecutedAt = false, bool $clearConfirmedAt = false): void {
-  ensure_special_asset_action_requests_table($pdo);
   $fields = ['status = ?'];
   $params = [$status];
   if ($error !== null) {
