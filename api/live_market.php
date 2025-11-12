@@ -23,9 +23,7 @@ $sql = "SELECT
           o_buy.user_id AS buyer_id,
           o_sell.user_id AS seller_id,
           ub.name AS buyer_name,
-          us.name AS seller_name,
-          ub.email AS buyer_email,
-          us.email AS seller_email
+          us.name AS seller_name
         FROM trades t
         LEFT JOIN orders o_buy ON o_buy.id = t.buy_order_id
         LEFT JOIN orders o_sell ON o_sell.id = t.sell_order_id
@@ -84,8 +82,6 @@ foreach ($rows as $row) {
     'total' => $total,
     'buyer_name' => $row['buyer_name'] ?? null,
     'seller_name' => $row['seller_name'] ?? null,
-    'buyer_email' => $row['buyer_email'] ?? null,
-    'seller_email' => $row['seller_email'] ?? null,
     'participants' => $participants,
     'hash' => $hash,
     'created_at' => $row['created_at'],
