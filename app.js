@@ -1242,12 +1242,37 @@ async function loadLiveMarketHistory(){
   }
 
   const rows = history.map((tx)=>{
-    const assetType = tx.asset_type || null;
-    const assetLabel = tx.asset_label || (assetType === 'bitcoin' ? 'BTC' : (assetType === 'nft' ? 'NFT' : ''));
-    const qtyDigits = assetType === 'bitcoin' ? 8 : (assetType === 'nft' ? 0 : 4);
-    const qtyText = esc(formatNumber(tx.qty, qtyDigits));
-    const priceText = esc(formatBRL(tx.price));
-    const totalText = esc(formatBRL(tx.total));
+    const rawAssetType = (tx.asset_type || '').toLowerCase();
+    const assetType = rawAssetType || null;
+    let assetLabel = tx.asset_label;
+    if (!assetLabel) {
+      if (assetType === 'bitcoin') assetLabel = 'BTC';
+      else if (assetType === 'nft') assetLabel = 'NFT';
+      else if (assetType === 'brl') assetLabel = 'BRL';
+      else if (assetType === 'quotas') assetLabel = 'Cotas';
+      else assetLabel = '';
+    }
+    const qtyDigits = (()=>{
+      switch (assetType) {
+        case 'bitcoin': return 8;
+        case 'nft': return 0;
+        case 'brl': return 2;
+        case 'quotas': return 4;
+        default: return 4;
+      }
+    })();
+    const qtyNumber = Number(tx.qty);
+    const qtyText = Number.isFinite(qtyNumber)
+      ? esc(formatNumber(qtyNumber, qtyDigits))
+      : '—';
+    const priceNumber = Number(tx.price);
+    const priceText = Number.isFinite(priceNumber) && tx.price !== null && tx.price !== ''
+      ? esc(formatBRL(priceNumber))
+      : '—';
+    const totalNumber = Number(tx.total);
+    const totalText = Number.isFinite(totalNumber) && tx.total !== null && tx.total !== ''
+      ? esc(formatBRL(totalNumber))
+      : '—';
     const participants = tx.participants || [tx.buyer_name, tx.seller_name].filter(Boolean).join(' → ');
     const safeParticipants = esc(participants || '');
     const detailsParts = [];
@@ -1255,6 +1280,7 @@ async function loadLiveMarketHistory(){
     if (tx.asset_token_id) detailsParts.push(`Token: ${tx.asset_token_id}`);
     if (tx.asset_serial) detailsParts.push(`Serial: ${tx.asset_serial}`);
     if (tx.asset_contract) detailsParts.push(`Contrato: ${tx.asset_contract}`);
+    if (tx.source === 'special_asset') detailsParts.push('Origem: Meus Ativos');
     const detailsText = esc(detailsParts.join(' · '));
     const fullHash = typeof tx.hash === 'string' ? tx.hash : '';
     const shortHash = fullHash.length > 16 ? `${fullHash.slice(0,16)}…` : fullHash;
