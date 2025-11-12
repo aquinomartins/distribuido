@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
+require_once __DIR__ . '/../lib/special_liquidity_user.php';
 require_login();
 $pdo = db();
 $sql = "SELECT
@@ -68,6 +69,7 @@ foreach ($rows as $row) {
   $hashSource = ($row['journal_id'] ? 'journal:' . $row['journal_id'] : 'trade:' . $row['trade_id']) . '|' . ($row['created_at'] ?? '');
   $hash = hash('sha256', $hashSource);
   $history[] = [
+    'source' => 'exchange_trade',
     'id' => (int)$row['trade_id'],
     'date' => $dt->format('Y-m-d'),
     'time' => $dt->format('H:i:s'),
@@ -89,7 +91,131 @@ foreach ($rows as $row) {
     'participants' => $participants,
     'hash' => $hash,
     'created_at' => $row['created_at'],
-    'occurred_at' => $row['occurred_at']
+    'occurred_at' => $row['occurred_at'],
+    'timestamp' => $dt->getTimestamp()
   ];
 }
+$specialSql = "SELECT
+                 r.id,
+                 r.asset,
+                 r.action,
+                 r.amount,
+                 r.total_brl,
+                 r.user_id,
+                 r.counterparty_id,
+                 r.created_at,
+                 r.confirmed_at,
+                 r.executed_at,
+                 initiator.name AS initiator_name,
+                 initiator.email AS initiator_email,
+                 counterparty.name AS counterparty_name,
+                 counterparty.email AS counterparty_email
+               FROM " . SPECIAL_ASSET_ACTION_REQUESTS_TABLE . " r
+               LEFT JOIN users initiator ON initiator.id = r.user_id
+               LEFT JOIN users counterparty ON counterparty.id = r.counterparty_id
+               WHERE r.status = 'executed'
+               ORDER BY COALESCE(r.executed_at, r.confirmed_at, r.created_at) DESC
+               LIMIT 200";
+
+$specialStmt = $pdo->query($specialSql);
+$specialRows = $specialStmt->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($specialRows as $row) {
+  $moment = $row['executed_at'] ?? $row['confirmed_at'] ?? $row['created_at'];
+  try {
+    $dt = new DateTime($moment ?? 'now');
+  } catch (Exception $e) {
+    $dt = new DateTime();
+  }
+
+  $assetType = strtolower((string)($row['asset'] ?? ''));
+  $action = strtolower((string)($row['action'] ?? ''));
+  $amount = isset($row['amount']) ? (float)$row['amount'] : 0.0;
+  $totalBrl = isset($row['total_brl']) && $row['total_brl'] !== null ? (float)$row['total_brl'] : null;
+
+  $assetLabel = '';
+  switch ($assetType) {
+    case 'bitcoin':
+      $assetLabel = 'BTC';
+      break;
+    case 'nft':
+      $assetLabel = 'NFT';
+      break;
+    case 'brl':
+      $assetLabel = 'BRL';
+      break;
+    case 'quotas':
+      $assetLabel = 'Cotas';
+      break;
+    default:
+      $assetLabel = strtoupper($assetType);
+  }
+
+  $participants = '';
+  $initiator = build_user_display_data((int)($row['user_id'] ?? 0), $row['initiator_name'] ?? null, $row['initiator_email'] ?? null);
+  $counterparty = null;
+  if (!empty($row['counterparty_id'])) {
+    $counterparty = build_user_display_data((int)$row['counterparty_id'], $row['counterparty_name'] ?? null, $row['counterparty_email'] ?? null);
+  }
+
+  if ($counterparty && !empty($counterparty['display_name'])) {
+    $participants = trim(($initiator['display_name'] ?? 'Usuário') . ' → ' . $counterparty['display_name']);
+  } else {
+    $participants = $initiator['display_name'] ?? 'Usuário';
+  }
+
+  $unitPrice = null;
+  if ($totalBrl !== null && $amount > 0 && $assetType !== 'brl') {
+    $unitPrice = $totalBrl / $amount;
+  }
+
+  if ($assetType === 'brl' && $totalBrl === null) {
+    $totalBrl = $amount;
+  }
+
+  $hashSource = 'special:' . ($row['id'] ?? '0') . '|' . $dt->format(DateTime::ATOM);
+  $hash = hash('sha256', $hashSource);
+
+  $history[] = [
+    'source' => 'special_asset',
+    'id' => (int)($row['id'] ?? 0),
+    'date' => $dt->format('Y-m-d'),
+    'time' => $dt->format('H:i:s'),
+    'type' => 'special_asset_' . $action,
+    'type_label' => 'Ativos especiais - ' . format_special_asset_action_label($action),
+    'asset_type' => $assetType,
+    'asset_label' => $assetLabel,
+    'qty' => $amount,
+    'price' => $unitPrice,
+    'total' => $totalBrl,
+    'buyer_name' => $initiator['display_name'] ?? null,
+    'seller_name' => $counterparty['display_name'] ?? null,
+    'participants' => $participants,
+    'hash' => $hash,
+    'created_at' => $row['created_at'] ?? null,
+    'occurred_at' => $moment,
+    'timestamp' => $dt->getTimestamp()
+  ];
+}
+
+usort($history, static function ($a, $b) {
+  $ta = $a['timestamp'] ?? 0;
+  $tb = $b['timestamp'] ?? 0;
+  if ($ta === $tb) {
+    return 0;
+  }
+  return $ta < $tb ? 1 : -1;
+});
+
+// Limit final payload to avoid excessively large responses
+if (count($history) > 400) {
+  $history = array_slice($history, 0, 400);
+}
+
+// Remove helper timestamp before returning
+foreach ($history as &$entry) {
+  unset($entry['timestamp']);
+}
+unset($entry);
+
 echo json_encode(['transactions' => $history]);
