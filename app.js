@@ -1212,6 +1212,76 @@ async function loadOffers(kind){
   });
 }
 
+async function viewLiveMarket(){
+  if (!currentSession.logged) return needLogin();
+  const view = document.getElementById('view');
+  view.innerHTML = '<section class="section live-market" data-role="live-market-root"><h1>Mercado ao vivo</h1><p class="hint">Carregando histórico de transações...</p></section>';
+  await loadLiveMarketHistory();
+}
+
+async function loadLiveMarketHistory(){
+  const section = document.querySelector('[data-role="live-market-root"]');
+  if (!section) return;
+  const data = await getJSON(API('live_market.php'));
+  if (data && data.__auth === false) {
+    needLogin();
+    return;
+  }
+  if (!data || data.error) {
+    section.innerHTML = '<h1>Mercado ao vivo</h1><p class="msg err">Não foi possível carregar o histórico do mercado.</p>';
+    return;
+  }
+  const history = Array.isArray(data.transactions) ? data.transactions : [];
+  if (!history.length) {
+    section.innerHTML = '<h1>Mercado ao vivo</h1><div class="actions"><button type="button" data-role="refresh-live-market">Atualizar</button></div><p class="hint">Nenhuma transação registrada até o momento.</p>';
+    const btn = section.querySelector('[data-role="refresh-live-market"]');
+    if (btn) {
+      btn.addEventListener('click', (e)=>{ e.preventDefault(); loadLiveMarketHistory(); });
+    }
+    return;
+  }
+
+  const rows = history.map((tx)=>{
+    const assetType = tx.asset_type || null;
+    const assetLabel = tx.asset_label || (assetType === 'bitcoin' ? 'BTC' : (assetType === 'nft' ? 'NFT' : ''));
+    const qtyDigits = assetType === 'bitcoin' ? 8 : (assetType === 'nft' ? 0 : 4);
+    const qtyText = esc(formatNumber(tx.qty, qtyDigits));
+    const priceText = esc(formatBRL(tx.price));
+    const totalText = esc(formatBRL(tx.total));
+    const participants = tx.participants || [tx.buyer_name, tx.seller_name].filter(Boolean).join(' → ');
+    const safeParticipants = esc(participants || '');
+    const detailsParts = [];
+    if (tx.asset_chain) detailsParts.push(`Chain: ${tx.asset_chain}`);
+    if (tx.asset_token_id) detailsParts.push(`Token: ${tx.asset_token_id}`);
+    if (tx.asset_serial) detailsParts.push(`Serial: ${tx.asset_serial}`);
+    if (tx.asset_contract) detailsParts.push(`Contrato: ${tx.asset_contract}`);
+    const detailsText = esc(detailsParts.join(' · '));
+    const fullHash = typeof tx.hash === 'string' ? tx.hash : '';
+    const shortHash = fullHash.length > 16 ? `${fullHash.slice(0,16)}…` : fullHash;
+    const hashCell = fullHash ? `<code title="${esc(fullHash)}">${esc(shortHash)}</code>` : '';
+    return {
+      data: esc(tx.date || ''),
+      horario: esc(tx.time || ''),
+      tipo: esc(tx.type_label || tx.type || ''),
+      ativo: esc(assetLabel),
+      quantidade: qtyText,
+      preco: priceText,
+      valor: totalText,
+      negociantes: safeParticipants,
+      detalhes: detailsText,
+      hash: hashCell
+    };
+  });
+
+  const columns = ['data','horario','tipo','ativo','quantidade','preco','valor','negociantes','detalhes','hash'];
+  const labels = ['Data','Horário','Tipo','Ativo','Qtd','Preço','Valor total','Negociantes','Detalhes','Hash'];
+  section.innerHTML = `<h1>Mercado ao vivo</h1><div class="actions"><button type="button" data-role="refresh-live-market">Atualizar</button></div>${table(rows, columns, labels)}`;
+  const refreshBtn = section.querySelector('[data-role="refresh-live-market"]');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', (e)=>{ e.preventDefault(); loadLiveMarketHistory(); });
+  }
+}
+
 /* ========= Trades (lista geral recente) ========= */
 async function viewTrades(){
   document.getElementById('view').innerHTML = `<h1>Trades (últimos)</h1><div id="tradesBox"></div>`;
@@ -1986,6 +2056,7 @@ function initMenu(){
       if (v==='nft') return viewNFT();
       if (v==='mercado_nft') return viewMercadoNFT();
       if (v==='mercado_btc') return viewMercadoBTC();
+      if (v==='live_market') return viewLiveMarket();
       if (v==='trades') return viewTrades();
       if (v==='user_assets') return viewUserAssets();
       if (v==='pending_transactions') return viewPendingTransactions();
