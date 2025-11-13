@@ -188,4 +188,23 @@ small.hint { color:#6b7280; }
 .minted-owner small { display:inline-block; margin-left:6px; color:#9ca3af; }
 .minted-desc { margin:0; color:#cbd5f5; }
 .minted-meta { margin:0; font-size:0.85rem; color:#94a3b8; }
+.minted-collections { background:#0f172a; border-radius:20px; padding:24px; box-shadow:0 25px 60px rgba(15,23,42,0.4); display:flex; flex-direction:column; gap:18px; }
+.minted-collections-header { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; }
+.minted-collections-header h2 { margin:4px 0; font-size:1.6rem; }
+.minted-collections-header span { color:#94a3b8; }
+.minted-collections-metrics { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+.minted-collections-metrics strong { background:#111827; padding:8px 16px; border-radius:999px; font-size:0.95rem; }
+.minted-collections-grid { display:flex; flex-direction:column; gap:16px; }
+.minted-collection-card { background:#111827; border-radius:18px; padding:18px; border:1px solid rgba(148,163,184,0.3); display:flex; flex-direction:column; gap:12px; }
+.minted-collection-card header { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+.minted-collection-card header p { margin:0; font-size:1.1rem; font-weight:600; }
+.minted-collection-card header small { display:block; color:#94a3b8; font-size:0.85rem; margin-top:4px; }
+.minted-collection-card header span { background:#0b1220; padding:6px 16px; border-radius:999px; font-weight:600; }
+.minted-collection-items { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; }
+.minted-collection-item { background:#0b1220; border-radius:14px; padding:12px; display:flex; gap:12px; align-items:flex-start; border:1px solid rgba(255,255,255,0.08); box-shadow:0 10px 24px rgba(0,0,0,0.35); }
+.minted-collection-item img { width:72px; height:72px; border-radius:12px; object-fit:cover; border:1px solid rgba(255,255,255,0.1); }
+.minted-collection-item strong { display:block; color:#f8fafc; font-size:1rem; }
+.minted-collection-item p { margin:4px 0; font-size:0.9rem; color:#cbd5f5; }
+.minted-collection-item p.muted { color:#64748b; font-style:italic; }
+.minted-collection-item small { color:#94a3b8; font-size:0.75rem; }
 
