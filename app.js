@@ -74,6 +74,156 @@ function formatSpecialAssetAmountText(asset, amount){
   return formatNumber(value);
 }
 
+/* ========= Coleções ========= */
+const MARKET_COLLECTIONS = [
+  {
+    id: 'cryptopunks',
+    name: 'CryptoPunks',
+    category: 'Coleção OG',
+    totalItems: 10000,
+    owners: 3300,
+    floorEth: 45.8,
+    volumeEth: 850000,
+    change24h: '+4.2%',
+    coverImage: 'https://www.larvalabs.com/public/images/cryptopunks/punk-variety-2x.png',
+    featuredItem: 'punk7885',
+    description: 'Uma das coleções pioneiras em Ethereum com personagens pixelados que se tornaram ícones da cultura NFT.',
+    items: [
+      {
+        id: 'punk3100',
+        name: 'CryptoPunk #3100',
+        priceEth: 48.2,
+        lastSaleEth: 46.5,
+        owner: '0xb8...1190',
+        availability: 'À venda',
+        traits: ['Alien', 'Headband'],
+        image: 'https://www.larvalabs.com/public/images/cryptopunks/punk3100.png'
+      },
+      {
+        id: 'punk7804',
+        name: 'CryptoPunk #7804',
+        priceEth: 69.4,
+        lastSaleEth: 57.7,
+        owner: '0x73...ff21',
+        availability: 'Leilão',
+        traits: ['Alien', 'Pipe', 'Small Shades'],
+        image: 'https://www.larvalabs.com/public/images/cryptopunks/punk7804.png'
+      },
+      {
+        id: 'punk7885',
+        name: 'CryptoPunk #7885',
+        priceEth: 52.1,
+        lastSaleEth: 50.0,
+        owner: '0x19...2f3c',
+        availability: 'Oferta ativa',
+        traits: ['Zombie', 'Do-rag', 'Big Shades'],
+        image: 'https://www.larvalabs.com/public/images/cryptopunks/punk7885.png'
+      },
+      {
+        id: 'punk2140',
+        name: 'CryptoPunk #2140',
+        priceEth: 43.9,
+        lastSaleEth: 41.3,
+        owner: '0xa3...4b11',
+        availability: 'Oferta aceita',
+        traits: ['Ape', 'Knitted Cap'],
+        image: 'https://www.larvalabs.com/public/images/cryptopunks/punk2140.png'
+      }
+    ]
+  },
+  {
+    id: 'boredapeyc',
+    name: 'Bored Ape Yacht Club',
+    category: 'Club Membership',
+    totalItems: 10000,
+    owners: 5600,
+    floorEth: 28.6,
+    volumeEth: 102300,
+    change24h: '+1.6%',
+    coverImage: 'https://i.seadn.io/gae/7bKs64h0/promo1?w=500&auto=format',
+    featuredItem: 'bayc9151',
+    description: 'Coleção de macacos entediados com acesso a experiências exclusivas do BAYC.',
+    items: [
+      {
+        id: 'bayc9151',
+        name: 'BAYC #9151',
+        priceEth: 31.0,
+        lastSaleEth: 30.1,
+        owner: '0x8a...cc90',
+        availability: 'Compra imediata',
+        traits: ['Golden Brown', 'Leather Jacket', 'Crazy Eyes'],
+        image: 'https://i.seadn.io/gae/xO_Bp6kd06P88eaJEqn3Ejj6mUeJ8V4aHcRUW2KIiMzFxLpy0X58F3RDeo63e_kUsVTN_S7kwh28ykVfoCEN0z7LxyzKDn5XxhxL7sRKqzZo4PMBVXgSns0?w=500&auto=format'
+      },
+      {
+        id: 'bayc183',
+        name: 'BAYC #183',
+        priceEth: 34.8,
+        lastSaleEth: 33.0,
+        owner: '0xc4...751d',
+        availability: 'Oferta recebida',
+        traits: ['Robot', 'Bayc Flipped Brim', 'Rainbow Grill'],
+        image: 'https://i.seadn.io/gae/vH14RJCdxu2QG8kmJshlMsHx8X7x1YgnPZXoqBYwygJyI072QtdgQXl3k_VufADG7n2_ceDzy83H8-ei2qxGn8pYtBXexdF7nRmow4ppIqhzyapMI2vlA7E?w=500&auto=format'
+      },
+      {
+        id: 'bayc3367',
+        name: 'BAYC #3367',
+        priceEth: 29.4,
+        lastSaleEth: 0,
+        owner: '0xfe...77da',
+        availability: 'Novo anúncio',
+        traits: ['Blue Beam', 'Safari Hat', 'Hawaiian'],
+        image: 'https://i.seadn.io/gae/CZ0w-AV2XpVZl8vGeOawxDFUY8ailqXFz83vGN9VOGBev5nYeD1yfknhk_PaoCA8DmF5asJ5AZt0pOEt_KoYNWZLxE-tobVhtSGcVwqDAVBBusZT6F-T1w?w=500&auto=format'
+      }
+    ]
+  },
+  {
+    id: 'pudgypenguins',
+    name: 'Pudgy Penguins',
+    category: 'Coleção PFP',
+    totalItems: 8888,
+    owners: 4600,
+    floorEth: 12.3,
+    volumeEth: 76000,
+    change24h: '+6.8%',
+    coverImage: 'https://i.seadn.io/gae/_nT0OqQE0Vh1TQm9n1VWeN_GX2VINeodIZ6hO6PvxI6B_A5lHppZArYrusS4x2maFG-vfZfbQ3VIAtF_forNCz7Lxyz0_Z7dxyzKDn5XxhxL?w=500&auto=format',
+    featuredItem: 'penguin6523',
+    description: 'Pingüins com personalidade única que combinam estética kawaii e utilidades sociais.',
+    items: [
+      {
+        id: 'penguin6523',
+        name: 'Pudgy Penguin #6523',
+        priceEth: 13.2,
+        lastSaleEth: 12.8,
+        owner: '0xb1...6231',
+        availability: 'Oferta ativa',
+        traits: ['Crown', 'Fishing Pole', 'Green Background'],
+        image: 'https://i.seadn.io/gae/HEdBDEuDfSUeYEYVplpXCMVvjJAnCmvYzu3n6PvJEa3TBUnIFJnyGryuVKyXjHimoMuquxYZc13JUO2cMjJ1ytY1qXK2vNhbbX6YsJhBKt3vnDnNQfXlYQA?w=500&auto=format'
+      },
+      {
+        id: 'penguin1245',
+        name: 'Pudgy Penguin #1245',
+        priceEth: 12.5,
+        lastSaleEth: 11.9,
+        owner: '0xaa...9031',
+        availability: 'Compra imediata',
+        traits: ['Mustache', 'Trapper Hat', 'Yellow Background'],
+        image: 'https://i.seadn.io/gae/1X7sKnzG-TpA0RduCMsZIXdlAUPI0dR1vZ1tcHTTX3e8DqRL3-KjaxAgq6MqxsVXni4eWh05rq6ArtyTc95xJMu38xpv8uKXu95syEcxrB6f0GO6zkRgLQ?w=500&auto=format'
+      },
+      {
+        id: 'penguin701',
+        name: 'Pudgy Penguin #701',
+        priceEth: 11.9,
+        lastSaleEth: 12.0,
+        owner: '0xf0...a129',
+        availability: 'Leilão',
+        traits: ['Angel Wings', 'Halo', 'Purple Background'],
+        image: 'https://i.seadn.io/gae/XXAUPI0dR1vZ1tcHTT3I8iRrPq3P2wAPOQgQnXlLxyzKDn5XxhxL7sRKqzZo4PMBVXgSnwp?w=500&auto=format'
+      }
+    ]
+  }
+];
+let collectionsEscHandler = null;
+
 /* ========= Liquidity Game ========= */
 let liquidityGame = null;
 let liquidityPlayers = [];
@@ -2071,6 +2221,210 @@ async function viewPendingTransactions(flashMessage = null){
   renderPendingTransactionsContent(section, requests, flashMessage);
 }
 
+function buildCollectionCard(collection, index){
+  const featured = collection.items.find(item => item.id === collection.featuredItem) || collection.items[0];
+  return `
+    <article class="collection-card" data-collection="${collection.id}">
+      <div class="collection-card-rank">#${index + 1}</div>
+      <img src="${esc(collection.coverImage)}" alt="${esc(collection.name)}" class="collection-card-cover" loading="lazy"/>
+      <div class="collection-card-body">
+        <div class="collection-card-title">
+          <h3>${esc(collection.name)}</h3>
+          <span>${esc(collection.category)}</span>
+        </div>
+        <dl class="collection-card-stats">
+          <div>
+            <dt>Piso</dt>
+            <dd>${formatNumber(collection.floorEth, 2)} ETH</dd>
+          </div>
+          <div>
+            <dt>Volume</dt>
+            <dd>${formatNumber(collection.volumeEth, 0)} ETH</dd>
+          </div>
+          <div>
+            <dt>24h</dt>
+            <dd class="${String(collection.change24h).startsWith('-') ? 'neg' : 'pos'}">${esc(collection.change24h)}</dd>
+          </div>
+        </dl>
+        <div class="collection-card-highlight">
+          <img src="${esc(featured.image)}" alt="${esc(featured.name)}" loading="lazy"/>
+          <div>
+            <span>${esc(featured.name)}</span>
+            <strong>${formatNumber(featured.priceEth, 2)} ETH</strong>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderCollectionItems(container, collection){
+  if (!container) return;
+  container.innerHTML = collection.items.map(item => `
+    <button class="collection-item-card" data-collection="${collection.id}" data-item="${item.id}">
+      <img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy"/>
+      <div class="collection-item-info">
+        <strong>${esc(item.name)}</strong>
+        <span>${formatNumber(item.priceEth, 2)} ETH</span>
+        <small>${esc(item.availability)}</small>
+      </div>
+    </button>
+  `).join('');
+}
+
+function openCollectionItemModal(collectionId, itemId){
+  const collection = MARKET_COLLECTIONS.find(col => col.id === collectionId);
+  if (!collection) return;
+  const item = collection.items.find(it => it.id === itemId);
+  const modal = document.querySelector('[data-role="item-modal"]');
+  if (!item || !modal) return;
+  modal.innerHTML = `
+    <div class="item-modal-backdrop" data-action="close"></div>
+    <article class="item-modal-card">
+      <header>
+        <div>
+          <span>${esc(collection.name)}</span>
+          <h2>${esc(item.name)}</h2>
+        </div>
+        <button class="ghost" data-action="close">Fechar</button>
+      </header>
+      <div class="item-modal-body">
+        <img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy"/>
+        <div class="item-modal-details">
+          <dl>
+            <div>
+              <dt>Preço atual</dt>
+              <dd>${formatNumber(item.priceEth, 2)} ETH</dd>
+            </div>
+            <div>
+              <dt>Última venda</dt>
+              <dd>${item.lastSaleEth ? `${formatNumber(item.lastSaleEth, 2)} ETH` : '—'}</dd>
+            </div>
+            <div>
+              <dt>Disponibilidade</dt>
+              <dd>${esc(item.availability)}</dd>
+            </div>
+            <div>
+              <dt>Proprietário</dt>
+              <dd>${esc(item.owner)}</dd>
+            </div>
+          </dl>
+          <div class="item-modal-traits">
+            <h3>Atributos</h3>
+            <div>${item.traits.map(trait => `<span>${esc(trait)}</span>`).join('')}</div>
+          </div>
+          <button>Fazer oferta</button>
+        </div>
+      </div>
+    </article>
+  `;
+  modal.removeAttribute('hidden');
+  modal.classList.add('visible');
+  modal.querySelectorAll('[data-action="close"]').forEach(btn => {
+    btn.addEventListener('click', () => closeCollectionModal(modal), { once:true });
+  });
+}
+
+function closeCollectionModal(modal){
+  modal = modal || document.querySelector('[data-role="item-modal"]');
+  if (!modal) return;
+  modal.setAttribute('hidden', 'hidden');
+  modal.classList.remove('visible');
+}
+
+function renderCollectionDetail(section, collection){
+  if (!section) return;
+  if (!collection){
+    section.innerHTML = '<p class="hint">Selecione uma coleção para ver os detalhes.</p>';
+    return;
+  }
+  section.innerHTML = `
+    <article class="collection-hero">
+      <div>
+        <p>${esc(collection.category)}</p>
+        <h2>${esc(collection.name)}</h2>
+        <p class="collection-description">${esc(collection.description)}</p>
+        <dl class="collection-hero-stats">
+          <div>
+            <dt>Itens</dt>
+            <dd>${collection.totalItems.toLocaleString('pt-BR')}</dd>
+          </div>
+          <div>
+            <dt>Proprietários</dt>
+            <dd>${collection.owners.toLocaleString('pt-BR')}</dd>
+          </div>
+          <div>
+            <dt>Piso</dt>
+            <dd>${formatNumber(collection.floorEth, 2)} ETH</dd>
+          </div>
+          <div>
+            <dt>Volume</dt>
+            <dd>${formatNumber(collection.volumeEth, 0)} ETH</dd>
+          </div>
+        </dl>
+      </div>
+      <img src="${esc(collection.coverImage)}" alt="${esc(collection.name)}" loading="lazy"/>
+    </article>
+    <section class="collection-items-panel">
+      <div class="panel-header">
+        <h3>Itens da coleção</h3>
+        <span>${collection.items.length} listados</span>
+      </div>
+      <div class="collection-items" data-role="collection-items"></div>
+    </section>
+  `;
+  const itemsContainer = section.querySelector('[data-role="collection-items"]');
+  renderCollectionItems(itemsContainer, collection);
+  section.querySelectorAll('.collection-item-card').forEach(card => {
+    card.addEventListener('click', ()=>{
+      openCollectionItemModal(card.dataset.collection, card.dataset.item);
+    });
+  });
+}
+
+function viewCollections(){
+  const view = document.getElementById('view');
+  const firstCollection = MARKET_COLLECTIONS[0];
+  view.innerHTML = `
+    <section class="collections-view">
+      <header class="collections-header">
+        <div>
+          <p>Marketplace</p>
+          <h1>Descubra coleções em destaque</h1>
+          <span>Estilo inspirado no OpenSea, com cards interativos e dados em tempo real.</span>
+        </div>
+        <button class="ghost">Explorar tudo</button>
+      </header>
+      <div class="collections-grid" data-role="collections-grid"></div>
+      <section class="collection-detail" data-role="collection-detail"></section>
+      <div class="item-modal" data-role="item-modal" hidden></div>
+    </section>
+  `;
+  const grid = view.querySelector('[data-role="collections-grid"]');
+  grid.innerHTML = MARKET_COLLECTIONS.map((collection, index)=>buildCollectionCard(collection, index)).join('');
+  const detailSection = view.querySelector('[data-role="collection-detail"]');
+  renderCollectionDetail(detailSection, firstCollection);
+  grid.querySelectorAll('.collection-card').forEach(card => {
+    card.addEventListener('click', ()=>{
+      const collection = MARKET_COLLECTIONS.find(col => col.id === card.dataset.collection);
+      renderCollectionDetail(detailSection, collection);
+      grid.querySelectorAll('.collection-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+    });
+  });
+  const firstCard = grid.querySelector('.collection-card');
+  if (firstCard) firstCard.classList.add('active');
+  if (collectionsEscHandler){
+    document.removeEventListener('keydown', collectionsEscHandler);
+  }
+  collectionsEscHandler = (evt)=>{
+    if (evt.key === 'Escape'){
+      closeCollectionModal();
+    }
+  };
+  document.addEventListener('keydown', collectionsEscHandler);
+}
+
 /* ========= Menu ========= */
 function initMenu(){
   document.querySelectorAll('a[data-view]').forEach(a=>{
@@ -2087,6 +2441,7 @@ function initMenu(){
       if (v==='user_assets') return viewUserAssets();
       if (v==='pending_transactions') return viewPendingTransactions();
       if (v==='liquidity_game') return viewLiquidityGame();
+      if (v==='collections') return viewCollections();
       if (v==='admin') return viewAdmin();
     });
   });
