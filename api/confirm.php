@@ -2,8 +2,12 @@
 require_once __DIR__ . '/../lib/db.php';
 $pdo = db();
 
-$token = $_GET['token'] ?? '';
-if (!$token) { http_response_code(400); echo "<h2>Token inválido.</h2>"; exit; }
+$token = trim($_GET['token'] ?? '');
+if ($token === '' || !preg_match('/^[a-f0-9]{32,64}$/i', $token)) {
+  http_response_code(400);
+  echo "<h2>Token inválido.</h2>";
+  exit;
+}
 
 $stmt = $pdo->prepare("SELECT user_id FROM user_confirmations WHERE token=? LIMIT 1");
 $stmt->execute([$token]);

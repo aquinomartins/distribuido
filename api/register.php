@@ -27,8 +27,12 @@ try {
   $token = md5(uniqid(rand(), true));
   $pdo->prepare("INSERT INTO user_confirmations (user_id, token) VALUES (?, ?)")->execute([$uid, $token]);
 
-  $domain = $_SERVER['HTTP_HOST'] ?? 'aquino.bsb.br';
-  $link = "https://{$domain}/api/confirm.php?token=" . $token;
+  $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
+  $host = $_SERVER['HTTP_HOST'] ?? 'aquino.bsb.br';
+  $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/api/register.php'));
+  if ($scriptDir === '/' || $scriptDir === '.') { $scriptDir = ''; }
+  $confirmPath = '/' . ltrim($scriptDir . '/confirm.php', '/');
+  $link = sprintf('%s://%s%s?token=%s', $scheme, $host, $confirmPath, urlencode($token));
   $subject = "Confirme seu cadastro - AquinoNFT";
   $message = "Olá, {$name}!\n\nConfirme seu cadastro clicando no link abaixo:\n{$link}\n\nSe você não solicitou, ignore este e-mail.\n";
   $headers = "From: noreply@aquino.bsb.br\r\nContent-Type: text/plain; charset=UTF-8\r\n";
