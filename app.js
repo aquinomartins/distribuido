@@ -2018,6 +2018,10 @@ function renderMintedNftList(container, items){
     const desc = item.description ? `<p class="minted-desc">${esc(item.description)}</p>` : '';
     const mintedAt = formatDateTime(item.created_at) || '';
     const tokenTag = item.instance_id ? `#${item.instance_id}` : '#-';
+    const workId = Number(item.work_id) || '';
+    const deleteBtn = workId
+      ? `<div class="minted-actions"><button type="button" data-action="delete-minted" data-work-id="${workId}" data-title="${title}">Excluir NFT</button></div>`
+      : '';
     return `
       <article class="minted-card">
         <div class="minted-thumb">
@@ -2031,6 +2035,7 @@ function renderMintedNftList(container, items){
           <p class="minted-owner"><strong>Proprietário:</strong> ${owner}${ownerEmail}</p>
           ${desc}
           <p class="minted-meta">${mintedAt ? `Registrado em ${mintedAt}` : ''}</p>
+          ${deleteBtn}
         </div>
       </article>
     `;
@@ -2117,6 +2122,45 @@ async function viewAdminMint(){
     if (countEl) countEl.textContent = list.length === 1 ? '1 item' : `${list.length} itens`;
     renderMintedNftList(mintedContainer, list);
   };
+
+  if (mintedContainer) {
+    mintedContainer.addEventListener('click', async (evt) => {
+      const btn = evt.target.closest('[data-action="delete-minted"]');
+      if (!btn) return;
+      const workId = Number(btn.getAttribute('data-work-id'));
+      if (!workId) return;
+      const nftTitle = btn.getAttribute('data-title') || 'esta NFT';
+      if (!confirm(`Tem certeza de que deseja excluir ${nftTitle}? Esta ação não pode ser desfeita.`)) return;
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Excluindo...';
+      try {
+        const res = await fetch(API('admin_delete_minted_nft.php'), {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ work_id: workId })
+        });
+        if (res.status === 401) return needLogin();
+        if (res.status === 403) {
+          view.innerHTML = `<h1>Acesso restrito</h1><p>Somente administradores podem criar NFTs.</p>`;
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data && data.ok) {
+          alert('NFT excluída com sucesso.');
+          await refreshMintedList();
+        } else {
+          alert('Erro ao excluir NFT: ' + (data.detail || data.error || res.statusText));
+        }
+      } catch (err) {
+        alert('Erro inesperado ao excluir a NFT.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+  }
 
   const form = document.getElementById('mintNftForm');
   if (form && users.length > 0) {
