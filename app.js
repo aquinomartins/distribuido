@@ -43,6 +43,12 @@ function formatNumber(value, digits=2){
   const num = Number.isFinite(value) ? value : Number(value) || 0;
   return num.toLocaleString('pt-BR', { minimumFractionDigits:digits, maximumFractionDigits:digits });
 }
+function truncateText(value, maxLength=120){
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}…`;
+}
 function esc(str){
   return String(str ?? '').replace(/[&<>"']/g, s=>({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
@@ -2560,6 +2566,102 @@ function renderCollectionDetail(section, collection){
   });
 }
 
+function renderMintedCollectionsGrid(section, payload){
+  if (!section) return;
+  const grid = section.querySelector('[data-role="minted-grid"]');
+  const ownersEl = section.querySelector('[data-role="minted-owners"]');
+  const itemsEl = section.querySelector('[data-role="minted-items"]');
+  if (!grid) return;
+
+  const payloadIsObject = payload && typeof payload === 'object';
+  const collections = Array.isArray(payload)
+    ? payload
+    : (payloadIsObject && Array.isArray(payload.collections) ? payload.collections : []);
+  const totalItems = payloadIsObject && typeof payload.total_items === 'number'
+    ? payload.total_items
+    : collections.reduce((acc, col) => acc + ((col.items && col.items.length) || 0), 0);
+
+  if (ownersEl) {
+    ownersEl.textContent = collections.length === 1
+      ? '1 coleção'
+      : `${collections.length} coleções`;
+  }
+  if (itemsEl) {
+    itemsEl.textContent = totalItems === 1
+      ? '1 NFT'
+      : `${totalItems} NFTs`;
+  }
+
+  if (collections.length === 0) {
+    grid.innerHTML = '<p class="hint">Nenhuma NFT foi mintada até o momento.</p>';
+    return;
+  }
+
+  const placeholder = 'https://via.placeholder.com/140x140.png?text=NFT';
+  grid.innerHTML = collections.map(collection => {
+    const ownerDisplay = esc(collection.owner_display
+      || collection.owner_name
+      || collection.owner_email
+      || 'Coleção sem proprietário');
+    const ownerEmail = collection.owner_email
+      ? `<small>${esc(collection.owner_email)}</small>`
+      : '';
+    const items = Array.isArray(collection.items) ? collection.items : [];
+    const itemsHtml = items.map(item => {
+      const imageUrl = esc(item.image_url || placeholder);
+      const title = esc(item.title || 'NFT sem título');
+      const desc = item.description
+        ? `<p>${esc(truncateText(item.description, 110))}</p>`
+        : '<p class="muted">Sem descrição</p>';
+      const mintedText = formatDateTime(item.created_at) || '';
+      return `
+        <div class="minted-collection-item">
+          <img src="${imageUrl}" alt="${title}" loading="lazy" />
+          <div>
+            <strong>${title}</strong>
+            ${desc}
+            <small>${mintedText ? `Mintado em ${mintedText}` : 'Data não informada'}</small>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const countLabel = items.length === 1 ? '1 NFT' : `${items.length} NFTs`;
+    return `
+      <article class="minted-collection-card">
+        <header>
+          <div>
+            <p>${ownerDisplay}</p>
+            ${ownerEmail}
+          </div>
+          <span>${countLabel}</span>
+        </header>
+        <div class="minted-collection-items">${itemsHtml}</div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function loadMintedCollections(section){
+  if (!section) return;
+  const grid = section.querySelector('[data-role="minted-grid"]');
+  if (grid) grid.innerHTML = '<p class="hint">Carregando NFTs do mint...</p>';
+  try {
+    const data = await getJSON(API('minted_collections.php'));
+    if (data.__auth === false) {
+      if (grid) grid.innerHTML = '<p class="hint err">Faça login para visualizar as NFTs mintadas.</p>';
+      return;
+    }
+    if (data.error) {
+      if (grid) grid.innerHTML = `<p class="hint err">${esc(data.detail || 'Erro ao carregar NFTs mintadas.')}</p>`;
+      return;
+    }
+    renderMintedCollectionsGrid(section, data);
+  } catch (err) {
+    if (grid) grid.innerHTML = '<p class="hint err">Não foi possível carregar as NFTs mintadas.</p>';
+  }
+}
+
 function viewCollections(){
   const view = document.getElementById('view');
   const firstCollection = MARKET_COLLECTIONS[0];
@@ -2573,6 +2675,22 @@ function viewCollections(){
         </div>
         <button class="ghost">Explorar tudo</button>
       </header>
+      <section class="minted-collections" data-role="minted-collections">
+        <div class="minted-collections-header">
+          <div>
+            <p>Mint interno</p>
+            <h2>NFTs criadas na plataforma</h2>
+            <span>Organizadas automaticamente pelas NFTs do módulo de mint.</span>
+          </div>
+          <div class="minted-collections-metrics">
+            <strong data-role="minted-owners">0 coleções</strong>
+            <strong data-role="minted-items">0 NFTs</strong>
+          </div>
+        </div>
+        <div class="minted-collections-grid" data-role="minted-grid">
+          <p class="hint">Carregando NFTs do mint...</p>
+        </div>
+      </section>
       <div class="collections-grid" data-role="collections-grid"></div>
       <section class="collection-detail" data-role="collection-detail"></section>
       <div class="item-modal" data-role="item-modal" hidden></div>
@@ -2582,6 +2700,8 @@ function viewCollections(){
   grid.innerHTML = MARKET_COLLECTIONS.map((collection, index)=>buildCollectionCard(collection, index)).join('');
   const detailSection = view.querySelector('[data-role="collection-detail"]');
   renderCollectionDetail(detailSection, firstCollection);
+  const mintedSection = view.querySelector('[data-role="minted-collections"]');
+  loadMintedCollections(mintedSection);
   grid.querySelectorAll('.collection-card').forEach(card => {
     card.addEventListener('click', ()=>{
       const collection = MARKET_COLLECTIONS.find(col => col.id === card.dataset.collection);
