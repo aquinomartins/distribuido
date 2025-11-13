@@ -49,6 +49,13 @@ function esc(str){
   })[s]);
 }
 
+function formatDateTime(value){
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
 function formatSpecialAssetAction(action){
   const key = String(action ?? '').toLowerCase();
   return SPECIAL_ASSET_ACTION_LABELS[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : '');
@@ -1989,6 +1996,177 @@ async function viewAdmin(){
   }
 }
 
+function renderMintedNftList(container, items){
+  if (!container) return;
+  if (!Array.isArray(items) || items.length === 0) {
+    container.innerHTML = '<p class="hint">Nenhuma NFT cadastrada até o momento.</p>';
+    return;
+  }
+
+  const placeholder = 'https://via.placeholder.com/140x140.png?text=NFT';
+  container.innerHTML = items.map(item => {
+    const imageUrl = esc(item.image_url || placeholder);
+    const title = esc(item.title || 'NFT sem título');
+    const owner = esc(item.owner_name || 'Usuário removido');
+    const ownerEmail = item.owner_email ? ` <small>${esc(item.owner_email)}</small>` : '';
+    const desc = item.description ? `<p class="minted-desc">${esc(item.description)}</p>` : '';
+    const mintedAt = formatDateTime(item.created_at) || '';
+    const tokenTag = item.instance_id ? `#${item.instance_id}` : '#-';
+    return `
+      <article class="minted-card">
+        <div class="minted-thumb">
+          <img src="${imageUrl}" alt="${title}" loading="lazy" />
+        </div>
+        <div class="minted-info">
+          <header>
+            <h3>${title}</h3>
+            <span>${tokenTag}</span>
+          </header>
+          <p class="minted-owner"><strong>Proprietário:</strong> ${owner}${ownerEmail}</p>
+          ${desc}
+          <p class="minted-meta">${mintedAt ? `Registrado em ${mintedAt}` : ''}</p>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function viewAdminMint(){
+  const view = document.getElementById('view');
+  if (!currentSession.is_admin) {
+    view.innerHTML = `<h1>Acesso restrito</h1><p>Somente administradores podem criar NFTs.</p>`;
+    return;
+  }
+
+  view.innerHTML = `<h1>Mint de NFT</h1><p>Carregando informações...</p>`;
+
+  const [usersData, mintedData] = await Promise.all([
+    getJSON(API('admin_users.php')),
+    getJSON(API('admin_minted_nfts.php'))
+  ]);
+
+  if (usersData.__auth === false || mintedData.__auth === false) return needLogin();
+  if (usersData.__forbidden || mintedData.__forbidden) {
+    view.innerHTML = `<h1>Acesso restrito</h1><p>Somente administradores podem criar NFTs.</p>`;
+    return;
+  }
+
+  const users = Array.isArray(usersData) ? usersData : [];
+  const minted = Array.isArray(mintedData) ? mintedData : [];
+
+  const selectDisabled = users.length === 0 ? 'disabled' : '';
+  const userOptions = users.length
+    ? ['<option value="">Selecione um usuário</option>', ...users.map(u => {
+        const label = esc(u.name || u.email || `Usuário #${u.id}`);
+        return `<option value="${u.id}">${label}</option>`;
+      })].join('')
+    : '<option value="" disabled selected>Nenhum usuário disponível</option>';
+
+  const mintedCountText = minted.length === 1 ? '1 item' : `${minted.length} itens`;
+
+  view.innerHTML = `
+    <section class="mint-nft">
+      <div class="card mint-nft-form">
+        <h1>Criação (mint) de NFT</h1>
+        <p class="hint">Envie uma imagem e associe a NFT a um usuário específico.</p>
+        <form id="mintNftForm" enctype="multipart/form-data">
+          <label>Usuário proprietário</label>
+          <select name="user_id" required ${selectDisabled}>${userOptions}</select>
+          <label>Título da obra</label>
+          <input type="text" name="title" placeholder="Ex: Aurora Digital" required ${selectDisabled} />
+          <label>Descrição</label>
+          <textarea name="description" rows="3" placeholder="Detalhes da obra" ${selectDisabled}></textarea>
+          <label>Imagem (PNG, JPG, GIF ou WEBP)</label>
+          <input type="file" name="image" accept="image/*" required ${selectDisabled} />
+          <p class="hint">A imagem será enviada e armazenada no servidor no momento do mint.</p>
+          <button type="submit" ${selectDisabled}>Criar NFT</button>
+          ${users.length === 0 ? '<p class="hint err">Cadastre um usuário para habilitar o mint.</p>' : ''}
+          <p class="msg" id="mintNftMsg"></p>
+        </form>
+      </div>
+      <section class="mint-nft-list">
+        <div class="mint-nft-list-header">
+          <h2>NFTs cadastradas</h2>
+          <span data-role="minted-count">${mintedCountText}</span>
+        </div>
+        <div data-role="minted-list" class="minted-grid"></div>
+      </section>
+    </section>
+  `;
+
+  const mintedContainer = view.querySelector('[data-role="minted-list"]');
+  renderMintedNftList(mintedContainer, minted);
+  const countEl = view.querySelector('[data-role="minted-count"]');
+
+  const refreshMintedList = async () => {
+    if (!mintedContainer) return;
+    mintedContainer.innerHTML = '<p class="hint">Atualizando NFTs...</p>';
+    const latest = await getJSON(API('admin_minted_nfts.php'));
+    if (latest.__auth === false) return needLogin();
+    if (latest.__forbidden) {
+      mintedContainer.innerHTML = '<p class="hint err">Acesso restrito.</p>';
+      return;
+    }
+    const list = Array.isArray(latest) ? latest : [];
+    if (countEl) countEl.textContent = list.length === 1 ? '1 item' : `${list.length} itens`;
+    renderMintedNftList(mintedContainer, list);
+  };
+
+  const form = document.getElementById('mintNftForm');
+  if (form && users.length > 0) {
+    const msgEl = document.getElementById('mintNftMsg');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    form.addEventListener('submit', async (evt) => {
+      evt.preventDefault();
+      if (msgEl) {
+        msgEl.textContent = '';
+        msgEl.classList.remove('err');
+      }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando...';
+      }
+      try {
+        const formData = new FormData(form);
+        const res = await fetch(API('admin_mint_nft.php'), {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) return needLogin();
+        if (res.status === 403) {
+          view.innerHTML = `<h1>Acesso restrito</h1><p>Somente administradores podem criar NFTs.</p>`;
+          return;
+        }
+        if (res.ok && data && data.ok) {
+          form.reset();
+          if (msgEl) {
+            msgEl.textContent = 'NFT criada com sucesso.';
+            msgEl.classList.remove('err');
+          }
+          await refreshMintedList();
+        } else {
+          if (msgEl) {
+            msgEl.textContent = 'Erro: ' + (data.detail || data.error || res.statusText);
+            msgEl.classList.add('err');
+          }
+        }
+      } catch (err) {
+        if (msgEl) {
+          msgEl.textContent = 'Erro inesperado ao enviar o formulário.';
+          msgEl.classList.add('err');
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Criar NFT';
+        }
+      }
+    });
+  }
+}
+
 function renderPendingTransactionCard(req){
   if (!req || typeof req !== 'object') return '';
   const assetKey = String(req.asset ?? '').toLowerCase();
@@ -2443,6 +2621,7 @@ function initMenu(){
       if (v==='liquidity_game') return viewLiquidityGame();
       if (v==='collections') return viewCollections();
       if (v==='admin') return viewAdmin();
+      if (v==='admin_mint') return viewAdminMint();
     });
   });
 }
