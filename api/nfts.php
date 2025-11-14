@@ -6,11 +6,17 @@ header('Content-Type: application/json');
 $user_id = current_user_id();
 $pdo = db();
 $sql = "
-SELECT w.id as work_id, w.title, ai.id as instance_id, a.id as asset_id
+SELECT
+  w.id AS work_id,
+  w.title,
+  ai.id AS instance_id,
+  ai.token_id,
+  a.id AS asset_id,
+  JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.image')) AS image_url
 FROM works w
-JOIN asset_instances ai ON ai.id=w.asset_instance_id
-JOIN assets a ON a.id=ai.asset_id
-JOIN positions p ON p.asset_id=a.id AND p.owner_type='user' AND p.owner_id=? AND p.qty>0";
+JOIN asset_instances ai ON ai.id = w.asset_instance_id
+JOIN assets a ON a.id = ai.asset_id
+JOIN positions p ON p.asset_id = a.id AND p.owner_type = 'user' AND p.owner_id = ? AND p.qty > 0";
 $stmt = $pdo->prepare($sql); $stmt->execute([$user_id]);
 $obras = $stmt->fetchAll();
 $sql2 = "
