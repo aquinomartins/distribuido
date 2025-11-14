@@ -8,7 +8,10 @@ require_once __DIR__ . '/db.php';
  */
 function post_journal($ref_type, $ref_id, $memo, $legs) {
   $pdo = db();
-  $pdo->beginTransaction();
+  $startedTx = !$pdo->inTransaction();
+  if ($startedTx) {
+    $pdo->beginTransaction();
+  }
   try {
     $stmt = $pdo->prepare("INSERT INTO journals(ref_type, ref_id, memo) VALUES(?,?,?)");
     $stmt->execute([$ref_type, $ref_id, $memo]);
@@ -23,10 +26,14 @@ function post_journal($ref_type, $ref_id, $memo, $legs) {
     }
     if (bccomp($sumD, $sumC, 8) !== 0) throw new Exception("Unbalanced entry");
 
-    $pdo->commit();
+    if ($startedTx) {
+      $pdo->commit();
+    }
     return $jid;
   } catch (Exception $e) {
-    $pdo->rollBack();
+    if ($startedTx && $pdo->inTransaction()) {
+      $pdo->rollBack();
+    }
     http_response_code(400);
     echo json_encode(['error'=>$e->getMessage()]);
     exit;
