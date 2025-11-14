@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../lib/auth.php';
+require_once __DIR__ . '/../lib/special_liquidity_user.php';
 
 require_login();
 require_admin();
@@ -43,6 +44,11 @@ $assetInstanceId = (int)$work['asset_instance_id'];
 $assetId = (int)$work['asset_id'];
 $imagePath = $work['image_path'];
 
+$stmt = $pdo->prepare("SELECT owner_id\n                       FROM positions\n                       WHERE asset_id = ? AND owner_type = 'user' AND qty > 0\n                       LIMIT 1");
+$stmt->execute([$assetId]);
+$ownerId = $stmt->fetchColumn();
+$ownerId = $ownerId !== false ? (int)$ownerId : null;
+
 try {
     $pdo->beginTransaction();
 
@@ -66,6 +72,10 @@ try {
 
     $stmt = $pdo->prepare('DELETE FROM assets WHERE id = ?');
     $stmt->execute([$assetId]);
+
+    if ($ownerId) {
+        increment_special_liquidity_nft($pdo, $ownerId, -1);
+    }
 
     $pdo->commit();
 } catch (Exception $e) {
