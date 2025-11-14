@@ -237,6 +237,7 @@ const MARKET_COLLECTIONS = [
   }
 ];
 let collectionsEscHandler = null;
+let mintedCollectionsCache = [];
 
 /* ========= Liquidity Game ========= */
 let liquidityGame = null;
@@ -2745,6 +2746,76 @@ function closeCollectionModal(modal){
   modal.classList.remove('visible');
 }
 
+function findMintedItem(workId){
+  const parsedId = Number(workId);
+  if (!Number.isFinite(parsedId)) return null;
+  for (const collection of mintedCollectionsCache) {
+    if (!collection || !Array.isArray(collection.items)) continue;
+    const item = collection.items.find(it => Number(it.work_id) === parsedId);
+    if (item) {
+      return { item, collection };
+    }
+  }
+  return null;
+}
+
+function openMintedItemModal(workId){
+  const match = findMintedItem(workId);
+  if (!match) return;
+  const { item, collection } = match;
+  const modal = document.querySelector('[data-role="item-modal"]');
+  if (!modal) return;
+  const placeholder = 'https://via.placeholder.com/320x320.png?text=NFT';
+  const title = esc(item.title || 'NFT sem título');
+  const owner = esc(collection.owner_display || collection.owner_name || collection.owner_email || 'Sem proprietário definido');
+  const ownerEmail = collection.owner_email ? `<small>${esc(collection.owner_email)}</small>` : '';
+  const mintedAt = formatDateTime(item.created_at) || 'Data não informada';
+  const tokenId = item.instance_id ? `#${item.instance_id}` : '#—';
+  const description = item.description ? esc(item.description) : 'Nenhuma descrição foi informada para esta NFT.';
+  const imageUrl = esc(item.image_url || placeholder);
+  modal.innerHTML = `
+    <div class="item-modal-backdrop" data-action="close"></div>
+    <article class="item-modal-card minted-detail">
+      <header>
+        <div>
+          <span>${owner}</span>
+          <h2>${title}</h2>
+          ${ownerEmail}
+        </div>
+        <button class="ghost" data-action="close">Fechar</button>
+      </header>
+      <div class="item-modal-body">
+        <img src="${imageUrl}" alt="${title}" loading="lazy"/>
+        <div class="item-modal-details">
+          <dl>
+            <div>
+              <dt>Token</dt>
+              <dd>${tokenId}</dd>
+            </div>
+            <div>
+              <dt>Registrado em</dt>
+              <dd>${mintedAt}</dd>
+            </div>
+            <div>
+              <dt>ID interno</dt>
+              <dd>${item.work_id || '—'}</dd>
+            </div>
+          </dl>
+          <div class="item-modal-description">
+            <h3>Descrição</h3>
+            <p>${description}</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+  modal.removeAttribute('hidden');
+  modal.classList.add('visible');
+  modal.querySelectorAll('[data-action="close"]').forEach(btn => {
+    btn.addEventListener('click', () => closeCollectionModal(modal), { once:true });
+  });
+}
+
 function renderCollectionDetail(section, collection){
   if (!section) return;
   if (!collection){
@@ -2806,6 +2877,7 @@ function renderMintedCollectionsGrid(section, payload){
   const collections = Array.isArray(payload)
     ? payload
     : (payloadIsObject && Array.isArray(payload.collections) ? payload.collections : []);
+  mintedCollectionsCache = collections;
   const totalItems = payloadIsObject && typeof payload.total_items === 'number'
     ? payload.total_items
     : collections.reduce((acc, col) => acc + ((col.items && col.items.length) || 0), 0);
@@ -2844,7 +2916,7 @@ function renderMintedCollectionsGrid(section, payload){
         : '<p class="muted">Sem descrição</p>';
       const mintedText = formatDateTime(item.created_at) || '';
       return `
-        <div class="minted-collection-item">
+        <div class="minted-collection-item" data-work-id="${item.work_id || ''}">
           <img src="${imageUrl}" alt="${title}" loading="lazy" />
           <div>
             <strong>${title}</strong>
@@ -2931,6 +3003,16 @@ function viewCollections(){
   renderCollectionDetail(detailSection, firstCollection);
   const mintedSection = view.querySelector('[data-role="minted-collections"]');
   loadMintedCollections(mintedSection);
+  if (mintedSection) {
+    mintedSection.addEventListener('click', (evt) => {
+      const item = evt.target.closest('.minted-collection-item');
+      if (!item) return;
+      const workId = item.getAttribute('data-work-id');
+      if (workId) {
+        openMintedItemModal(workId);
+      }
+    });
+  }
   grid.querySelectorAll('.collection-card').forEach(card => {
     card.addEventListener('click', ()=>{
       const collection = MARKET_COLLECTIONS.find(col => col.id === card.dataset.collection);
