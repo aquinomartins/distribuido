@@ -8,6 +8,7 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/ledger.php';
 require_once __DIR__ . '/../lib/util.php';
+require_once __DIR__ . '/../lib/special_liquidity_user.php';
 
 require_login();
 
@@ -57,6 +58,8 @@ try {
     $stmt = $pdo->prepare("INSERT INTO asset_moves(journal_id, asset_id, asset_instance_id, qty, from_account_id, to_account_id)
                            VALUES (?, ?, ?, ?, ?, ?)");
     $stmt->execute([$jid, NULL, $inst_id, 1, NULL, $inv_id]);
+
+    increment_special_liquidity_nft($pdo, $uid, 1);
 
     if ($started_tx) $pdo->commit();
 
