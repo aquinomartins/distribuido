@@ -29,11 +29,47 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $asset_instance_id = isset($d['asset_instance_id']) ? intval($d['asset_instance_id']) : null;
   $qty = floatval($d['qty'] ?? 0);
   $price = floatval($d['price'] ?? 0);
+  $immediate_or_cancel = !empty($d['immediate_or_cancel']);
 
   if(!in_array($side, ['buy','sell']) || $qty<=0 || $price<=0){
     http_response_code(400); echo json_encode(['error'=>'invalid_order']); exit;
   }
   if(!$asset_id && !$asset_instance_id){ http_response_code(400); echo json_encode(['error'=>'asset_required']); exit; }
+
+  $instance_asset_id = null;
+  if ($asset_instance_id) {
+    $stmtInstance = $pdo->prepare("SELECT asset_id FROM asset_instances WHERE id=? LIMIT 1");
+    $stmtInstance->execute([$asset_instance_id]);
+    $instance_asset_id = $stmtInstance->fetchColumn();
+    if (!$instance_asset_id) {
+      http_response_code(404);
+      echo json_encode(['error' => 'asset_instance_not_found']);
+      exit;
+    }
+    if (!$asset_id) {
+      $asset_id = intval($instance_asset_id);
+    }
+    $qty = 1.0; // NFTs são indivisíveis
+  }
+
+  if ($side === 'sell' && $asset_instance_id) {
+    $ownershipStmt = $pdo->prepare("SELECT p.qty FROM positions p WHERE p.owner_type='user' AND p.owner_id=? AND p.asset_id=? LIMIT 1");
+    $ownershipStmt->execute([$uid, $asset_id]);
+    $ownedQty = floatval($ownershipStmt->fetchColumn());
+    if ($ownedQty <= 0) {
+      http_response_code(403);
+      echo json_encode(['error' => 'not_owner_of_nft']);
+      exit;
+    }
+    if ($qty - $ownedQty > 0.00000001) {
+      http_response_code(400);
+      echo json_encode(['error' => 'insufficient_nft_qty']);
+      exit;
+    }
+    // Cancel previous open listings for the same NFT by this user
+    $pdo->prepare("UPDATE orders SET status='cancelled' WHERE user_id=? AND side='sell' AND status='open' AND asset_instance_id=?")
+        ->execute([$uid, $asset_instance_id]);
+  }
 
   // Create order
   $st = $pdo->prepare("INSERT INTO orders(user_id, side, asset_id, asset_instance_id, qty, price, status) VALUES (?,?,?,?,?,?, 'open')");
@@ -129,12 +165,21 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }
 
   // Update my order status/qty
-  if ($remaining < $qty) {
+  $filledSomething = ($remaining < $qty);
+  if ($filledSomething) {
     if ($remaining <= 0.00000001) {
       $pdo->prepare("UPDATE orders SET qty=0, status='filled' WHERE id=?")->execute([$order_id]);
+      $remaining = 0;
     } else {
       $pdo->prepare("UPDATE orders SET qty=? WHERE id=?")->execute([$remaining, $order_id]);
     }
+  }
+
+  if ($immediate_or_cancel && $remaining > 0.00000001) {
+    $pdo->prepare("UPDATE orders SET qty=0, status='cancelled' WHERE id=?")->execute([$order_id]);
+    http_response_code(409);
+    echo json_encode(['error' => 'not_filled', 'filled' => $qty - $remaining]);
+    exit;
   }
 
   echo json_encode(['ok'=>true,'order_id'=>$order_id,'remaining'=>$remaining]);

@@ -1644,6 +1644,7 @@ async function viewUserAssets(){
         <p class="hint">Visualize as obras digitais atualmente sob sua custódia.</p>
         <div class="user-nft-grid" data-role="user-nft-list"></div>
         <p class="hint user-nft-empty" data-role="user-nft-message"></p>
+        <p class="hint user-nft-feedback" data-role="user-nft-feedback" hidden></p>
         <div class="user-nft-chassis" data-role="user-nft-chassis" hidden>
           <h3>Chassis disponíveis</h3>
           <p class="hint">Você possui chassis em branco prontos para novas mintagens.</p>
@@ -1660,7 +1661,7 @@ async function viewUserAssets(){
       ${actionsSection}
     </div>`;
 
-  loadUserNfts(view.querySelector('[data-role="user-nfts"]'));
+  loadUserNfts(view.querySelector('[data-role="user-nfts"]'), { enableListing: isOwner });
 
   if (!isOwner) {
     return;
@@ -1891,6 +1892,7 @@ function normalizeUserNftWorks(rawWorks){
   if (!Array.isArray(rawWorks)) return [];
   return rawWorks.map((item)=>{
     const work = item || {};
+    const listingPrice = Number(work.listing_price);
     return {
       work_id: work.work_id ?? work.id ?? null,
       title: work.title || work.name || null,
@@ -1898,12 +1900,16 @@ function normalizeUserNftWorks(rawWorks){
       instance_id: work.instance_id ?? null,
       token_id: work.token_id || work.asset_token_id || null,
       image_url: work.image_url || work.thumbnail || work.thumbnail_url || work.cover_image || work.image || null,
-      collection: work.collection || work.collection_name || null
+      collection: work.collection || work.collection_name || null,
+      listing_order_id: work.listing_order_id ?? null,
+      listing_price: Number.isFinite(listingPrice) ? listingPrice : null
     };
   });
 }
 
-function renderUserNftCard(nft){
+function renderUserNftCard(nft, options={}){
+  const enableListing = !!options.enableListing;
+  const listingPrice = Number.isFinite(nft.listing_price) ? nft.listing_price : null;
   const title = nft.title || `NFT #${nft.work_id || nft.instance_id || nft.asset_id || '—'}`;
   const subtitleParts = [];
   if (nft.collection) subtitleParts.push(nft.collection);
@@ -1916,6 +1922,25 @@ function renderUserNftCard(nft){
   ].filter(Boolean).join('');
   const details = detailItems || '<dt>ID</dt><dd>—</dd>';
   const imageUrl = nft.image_url || NFT_IMAGE_PLACEHOLDER;
+  const listingInfo = (() => {
+    if (!enableListing) return '';
+    const hasListing = Number.isFinite(listingPrice);
+    const label = hasListing
+      ? `Anunciada por <strong>${esc(formatBRL(listingPrice))}</strong>`
+      : 'Não anunciada para venda';
+    const buttonLabel = hasListing ? 'Atualizar preço' : 'Colocar à venda';
+    const priceData = hasListing ? String(listingPrice) : '';
+    return `
+      <div class="user-nft-actions">
+        <p class="user-nft-sale${hasListing ? '' : ' muted'}">${label}</p>
+        <button type="button" class="user-nft-sell-btn" data-action="list-nft"
+          data-instance-id="${esc(nft.instance_id || '')}"
+          data-order-id="${esc(nft.listing_order_id || '')}"
+          data-title="${esc(title)}"
+          data-price="${esc(priceData)}">${buttonLabel}</button>
+      </div>
+    `;
+  })();
   return `
     <article class="user-nft-card">
       <div class="user-nft-thumb">
@@ -1927,6 +1952,7 @@ function renderUserNftCard(nft){
         <dl class="user-nft-meta">
           ${details}
         </dl>
+        ${listingInfo}
       </div>
     </article>
   `;
@@ -1949,16 +1975,23 @@ function renderUserNftChassisItem(item, index){
   `;
 }
 
-async function loadUserNfts(section){
+async function loadUserNfts(section, options={}){
   if (!section) return;
+  const enableListing = !!options.enableListing;
   const listEl = section.querySelector('[data-role="user-nft-list"]');
   const messageEl = section.querySelector('[data-role="user-nft-message"]');
+  const feedbackEl = section.querySelector('[data-role="user-nft-feedback"]');
   const chassisBox = section.querySelector('[data-role="user-nft-chassis"]');
   const chassisList = section.querySelector('[data-role="user-nft-chassis-list"]');
   if (listEl) listEl.innerHTML = '';
   if (messageEl) {
     messageEl.textContent = 'Carregando NFTs registradas...';
     messageEl.hidden = false;
+  }
+  if (feedbackEl) {
+    feedbackEl.hidden = true;
+    feedbackEl.textContent = '';
+    feedbackEl.classList.remove('err');
   }
   if (chassisBox) chassisBox.hidden = true;
 
@@ -1990,7 +2023,7 @@ async function loadUserNfts(section){
   const chassis = Array.isArray(nftData.chassis) ? nftData.chassis.filter(Boolean) : [];
 
   if (works.length) {
-    if (listEl) listEl.innerHTML = works.map(renderUserNftCard).join('');
+    if (listEl) listEl.innerHTML = works.map((work)=>renderUserNftCard(work, { enableListing })).join('');
     if (messageEl) messageEl.hidden = true;
   } else if (messageEl) {
     messageEl.textContent = 'Nenhuma NFT registrada no momento.';
@@ -2005,6 +2038,91 @@ async function loadUserNfts(section){
       chassisBox.hidden = true;
       chassisList.innerHTML = '';
     }
+  }
+
+  if (enableListing && !section.__nftListingHandlerBound) {
+    section.addEventListener('click', (event) => handleNftListButtonClick(event, section));
+    section.__nftListingHandlerBound = true;
+  }
+}
+
+function setUserNftFeedback(section, message, isError=false){
+  if (!section) return;
+  const feedbackEl = section.querySelector('[data-role="user-nft-feedback"]');
+  if (!feedbackEl) return;
+  if (!message) {
+    feedbackEl.hidden = true;
+    feedbackEl.textContent = '';
+    feedbackEl.classList.remove('err');
+    return;
+  }
+  feedbackEl.hidden = false;
+  feedbackEl.textContent = message;
+  if (isError) {
+    feedbackEl.classList.add('err');
+  } else {
+    feedbackEl.classList.remove('err');
+  }
+}
+
+async function handleNftListButtonClick(event, section){
+  const btn = event.target.closest('[data-action="list-nft"]');
+  if (!btn) return;
+  event.preventDefault();
+  const instanceId = parseInt(btn.dataset.instanceId, 10);
+  if (!Number.isFinite(instanceId)) {
+    setUserNftFeedback(section, 'NFT inválida selecionada.', true);
+    return;
+  }
+  const title = btn.dataset.title || 'sua NFT';
+  const currentPrice = parseFloat(btn.dataset.price || '');
+  const defaultValue = Number.isFinite(currentPrice) ? String(currentPrice) : '';
+  const input = window.prompt(`Por qual valor deseja listar ${title}?`, defaultValue);
+  if (input === null) {
+    return;
+  }
+  const normalized = input.replace(/\s+/g, '').replace(',', '.');
+  const priceValue = parseFloat(normalized);
+  if (!Number.isFinite(priceValue) || priceValue <= 0) {
+    setUserNftFeedback(section, 'Informe um preço válido para anunciar a NFT.', true);
+    return;
+  }
+  btn.disabled = true;
+  setUserNftFeedback(section, 'Enviando anúncio de venda...', false);
+  try {
+    const res = await fetch(API('orders.php'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        side: 'sell',
+        asset_instance_id: instanceId,
+        qty: 1,
+        price: priceValue
+      })
+    });
+    if (res.status === 401) {
+      needLogin();
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data && data.ok) {
+      await loadUserNfts(section, { enableListing: true });
+      setUserNftFeedback(section, `NFT anunciada por ${formatBRL(priceValue)}.`, false);
+    } else {
+      const detail = data && (data.detail || data.error);
+      let message = detail || 'Não foi possível anunciar a NFT.';
+      if (detail === 'not_owner_of_nft') {
+        message = 'Você precisa ser o proprietário desta NFT para colocá-la à venda.';
+      } else if (detail === 'insufficient_nft_qty') {
+        message = 'Quantidade indisponível para esta NFT.';
+      }
+      setUserNftFeedback(section, message, true);
+    }
+  } catch (err) {
+    setUserNftFeedback(section, 'Falha inesperada ao anunciar a NFT.', true);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -3097,6 +3215,157 @@ async function loadMintedCollections(section){
   }
 }
 
+function renderMarketplaceListings(section, listings){
+  if (!section) return;
+  const grid = section.querySelector('[data-role="marketplace-grid"]');
+  if (!grid) return;
+  if (!Array.isArray(listings) || listings.length === 0) {
+    grid.innerHTML = '<p class="hint">Nenhuma NFT foi anunciada para venda ainda.</p>';
+    return;
+  }
+  grid.innerHTML = listings.map((item) => {
+    const title = item.title || `NFT #${item.work_id || item.instance_id || '—'}`;
+    const seller = item.seller_name || item.seller_email || (item.seller_id ? `Usuário #${item.seller_id}` : 'Usuário desconhecido');
+    const description = item.description
+      ? `<p>${esc(truncateText(item.description, 110))}</p>`
+      : '<p class="muted">Sem descrição</p>';
+    const imageUrl = item.image_url || NFT_IMAGE_PLACEHOLDER;
+    const priceNumber = Number(item.price);
+    const priceLabel = Number.isFinite(priceNumber) ? formatBRL(priceNumber) : '—';
+    const disabledAttr = Number.isFinite(priceNumber) ? '' : ' disabled';
+    return `
+      <article class="marketplace-card">
+        <div class="marketplace-card-thumb">
+          <img src="${esc(imageUrl)}" alt="${esc(title)}" loading="lazy" />
+        </div>
+        <div class="marketplace-card-body">
+          <div>
+            <p class="marketplace-card-seller">${esc(seller)}</p>
+            <h3>${esc(title)}</h3>
+            ${description}
+          </div>
+          <div class="marketplace-card-actions">
+            <div>
+              <span>Preço</span>
+              <strong>${esc(priceLabel)}</strong>
+            </div>
+            <button type="button" class="marketplace-buy-btn" data-action="buy-nft" data-instance-id="${esc(item.instance_id || '')}"
+              data-price="${Number.isFinite(priceNumber) ? esc(String(priceNumber)) : ''}"
+              data-title="${esc(title)}"${disabledAttr}>Comprar</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function loadMarketplaceListings(section){
+  if (!section) return;
+  const grid = section.querySelector('[data-role="marketplace-grid"]');
+  const messageEl = section.querySelector('[data-role="marketplace-message"]');
+  if (messageEl) {
+    messageEl.hidden = true;
+    messageEl.textContent = '';
+    messageEl.classList.remove('err');
+  }
+  if (grid) {
+    grid.innerHTML = '<p class="hint">Carregando NFTs à venda...</p>';
+  }
+  let data;
+  try {
+    data = await getJSON(API('nft_listings.php'));
+  } catch (err) {
+    if (grid) grid.innerHTML = '<p class="hint err">Não foi possível carregar as NFTs à venda.</p>';
+    return;
+  }
+  if (data.__auth === false) {
+    if (grid) grid.innerHTML = '<p class="hint err">Faça login para visualizar as NFTs à venda.</p>';
+    return;
+  }
+  if (data.error) {
+    if (grid) {
+      grid.innerHTML = `<p class="hint err">${esc(data.detail || 'Erro ao carregar as NFTs à venda.')}</p>`;
+    }
+    return;
+  }
+  const listings = Array.isArray(data.listings) ? data.listings : [];
+  renderMarketplaceListings(section, listings);
+}
+
+async function handleMarketplaceAction(event, section){
+  const btn = event.target.closest('[data-action="buy-nft"]');
+  if (!btn) return;
+  event.preventDefault();
+  const instanceId = parseInt(btn.dataset.instanceId, 10);
+  const priceValue = parseFloat(btn.dataset.price);
+  const title = btn.dataset.title || 'NFT';
+  if (!Number.isFinite(instanceId) || !Number.isFinite(priceValue)) {
+    const messageEl = section.querySelector('[data-role="marketplace-message"]');
+    if (messageEl) {
+      messageEl.hidden = false;
+      messageEl.textContent = 'Não foi possível identificar esta NFT para compra.';
+      messageEl.classList.add('err');
+    }
+    return;
+  }
+  if (!window.confirm(`Confirmar compra de ${title} por ${formatBRL(priceValue)}?`)) {
+    return;
+  }
+  const messageEl = section.querySelector('[data-role="marketplace-message"]');
+  if (messageEl) {
+    messageEl.hidden = false;
+    messageEl.textContent = 'Processando compra...';
+    messageEl.classList.remove('err');
+  }
+  btn.disabled = true;
+  try {
+    const res = await fetch(API('orders.php'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        side: 'buy',
+        asset_instance_id: instanceId,
+        qty: 1,
+        price: priceValue,
+        immediate_or_cancel: true
+      })
+    });
+    if (res.status === 401) {
+      needLogin();
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data && data.ok) {
+      if (messageEl) {
+        messageEl.hidden = false;
+        messageEl.textContent = 'Compra realizada com sucesso!';
+        messageEl.classList.remove('err');
+      }
+      await loadMarketplaceListings(section);
+    } else {
+      const detail = data && (data.detail || data.error);
+      let message = detail || 'Não foi possível concluir a compra.';
+      if (detail === 'not_filled') {
+        message = 'A NFT não está mais disponível.';
+      }
+      if (messageEl) {
+        messageEl.hidden = false;
+        messageEl.textContent = message;
+        messageEl.classList.add('err');
+      }
+    }
+  } catch (err) {
+    if (messageEl) {
+      messageEl.hidden = false;
+      messageEl.textContent = 'Falha inesperada ao processar a compra.';
+      messageEl.classList.add('err');
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function viewCollections(){
   const view = document.getElementById('view');
   const firstCollection = MARKET_COLLECTIONS[0];
@@ -3110,6 +3379,20 @@ function viewCollections(){
         </div>
         <button class="ghost">Explorar tudo</button>
       </header>
+      <section class="marketplace-listings" data-role="marketplace-listings">
+        <div class="marketplace-header">
+          <div>
+            <p>Negociações diretas</p>
+            <h2>NFTs à venda pelos usuários</h2>
+            <span>Listagens publicadas pelos proprietários na aba Meus Ativos.</span>
+          </div>
+          <button class="ghost" data-role="refresh-marketplace">Atualizar</button>
+        </div>
+        <p class="hint marketplace-message" data-role="marketplace-message" hidden></p>
+        <div class="marketplace-grid" data-role="marketplace-grid">
+          <p class="hint">Carregando NFTs à venda...</p>
+        </div>
+      </section>
       <section class="minted-collections" data-role="minted-collections">
         <div class="minted-collections-header">
           <div>
@@ -3135,6 +3418,8 @@ function viewCollections(){
   grid.innerHTML = MARKET_COLLECTIONS.map((collection, index)=>buildCollectionCard(collection, index)).join('');
   const detailSection = view.querySelector('[data-role="collection-detail"]');
   renderCollectionDetail(detailSection, firstCollection);
+  const marketplaceSection = view.querySelector('[data-role="marketplace-listings"]');
+  loadMarketplaceListings(marketplaceSection);
   const mintedSection = view.querySelector('[data-role="minted-collections"]');
   loadMintedCollections(mintedSection);
   if (mintedSection) {
@@ -3146,6 +3431,16 @@ function viewCollections(){
         openMintedItemModal(workId);
       }
     });
+  }
+  if (marketplaceSection) {
+    marketplaceSection.addEventListener('click', (evt) => handleMarketplaceAction(evt, marketplaceSection));
+    const refreshBtn = marketplaceSection.querySelector('[data-role="refresh-marketplace"]');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        loadMarketplaceListings(marketplaceSection);
+      });
+    }
   }
   grid.querySelectorAll('.collection-card').forEach(card => {
     card.addEventListener('click', ()=>{
