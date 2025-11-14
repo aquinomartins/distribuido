@@ -845,6 +845,18 @@ function save_special_liquidity_assets(PDO $pdo, int $userId, array $payload): v
   ]);
 }
 
+function increment_special_liquidity_nft(PDO $pdo, int $userId, int $amount = 1): void {
+  $delta = (int)$amount;
+  if ($delta === 0) {
+    return;
+  }
+  ensure_special_liquidity_row($pdo, $userId);
+  $stmt = $pdo->prepare(
+    'UPDATE special_liquidity_assets SET nft = GREATEST(0, COALESCE(nft, 0) + ?), updated_at = NOW() WHERE user_id = ?'
+  );
+  $stmt->execute([$delta, $userId]);
+}
+
 function apply_special_asset_action(PDO $pdo, int $userId, string $asset, string $action, $amount, $totalBrl = null, $counterpartyId = null): array {
   $allowedAssets = ['bitcoin', 'nft', 'brl', 'quotas'];
   if (!in_array($asset, $allowedAssets, true)) {
