@@ -1,5 +1,6 @@
 const API = (path) => `api/${path}`;
 const AUTH = (path) => `auth/${path}`;
+const NFT_IMAGE_PLACEHOLDER = 'https://via.placeholder.com/140x140.png?text=NFT';
 
 let currentSession = {
   logged:false,
@@ -2009,9 +2010,9 @@ function renderMintedNftList(container, items){
     return;
   }
 
-  const placeholder = 'https://via.placeholder.com/140x140.png?text=NFT';
   container.innerHTML = items.map(item => {
-    const imageUrl = esc(item.image_url || placeholder);
+    const imagePath = item.image_url || '';
+    const imageUrl = esc(imagePath || NFT_IMAGE_PLACEHOLDER);
     const title = esc(item.title || 'NFT sem título');
     const owner = esc(item.owner_name || 'Usuário removido');
     const ownerEmail = item.owner_email ? ` <small>${esc(item.owner_email)}</small>` : '';
@@ -2019,8 +2020,11 @@ function renderMintedNftList(container, items){
     const mintedAt = formatDateTime(item.created_at) || '';
     const tokenTag = item.instance_id ? `#${item.instance_id}` : '#-';
     const workId = Number(item.work_id) || '';
-    const deleteBtn = workId
-      ? `<div class="minted-actions"><button type="button" data-action="delete-minted" data-work-id="${workId}" data-title="${title}">Excluir NFT</button></div>`
+    const actions = workId
+      ? `<div class="minted-actions">
+          <button type="button" class="minted-edit-btn" data-action="edit-minted" data-work-id="${workId}" data-title="${title}" data-description="${esc(item.description || '')}" data-image="${esc(imagePath)}">Editar NFT</button>
+          <button type="button" class="minted-delete-btn" data-action="delete-minted" data-work-id="${workId}" data-title="${title}">Excluir NFT</button>
+        </div>`
       : '';
     return `
       <article class="minted-card">
@@ -2035,7 +2039,7 @@ function renderMintedNftList(container, items){
           <p class="minted-owner"><strong>Proprietário:</strong> ${owner}${ownerEmail}</p>
           ${desc}
           <p class="minted-meta">${mintedAt ? `Registrado em ${mintedAt}` : ''}</p>
-          ${deleteBtn}
+          ${actions}
         </div>
       </article>
     `;
@@ -2123,8 +2127,189 @@ async function viewAdminMint(){
     renderMintedNftList(mintedContainer, list);
   };
 
+  const createMintedEditModal = () => {
+    const existingModal = document.querySelector('.minted-edit-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'minted-edit-modal';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = `
+      <div class="minted-edit-panel" role="dialog" aria-modal="true">
+        <button type="button" class="minted-edit-close" data-action="close-edit">&times;</button>
+        <h2>Editar NFT</h2>
+        <p class="hint">Atualize título, descrição ou substitua a imagem (opcional).</p>
+        <figure class="minted-edit-preview">
+          <img src="${NFT_IMAGE_PLACEHOLDER}" alt="Pré-visualização da NFT" data-role="minted-edit-preview" />
+        </figure>
+        <form data-role="minted-edit-form">
+          <label>Título</label>
+          <input type="text" name="title" required maxlength="160" />
+          <label>Descrição</label>
+          <textarea name="description" rows="3" placeholder="Detalhes da obra"></textarea>
+          <label>Nova imagem (opcional)</label>
+          <input type="file" name="image" accept="image/*" />
+          <p class="hint">Formatos suportados: JPG, PNG, GIF ou WEBP (até 5 MB).</p>
+          <button type="submit">Salvar alterações</button>
+          <p class="msg" data-role="minted-edit-msg"></p>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    const form = overlay.querySelector('[data-role="minted-edit-form"]');
+    const msgEl = overlay.querySelector('[data-role="minted-edit-msg"]');
+    const previewImg = overlay.querySelector('[data-role="minted-edit-preview"]');
+    const titleInput = form.querySelector('[name="title"]');
+    const descInput = form.querySelector('[name="description"]');
+    const imageInput = form.querySelector('[name="image"]');
+    let currentPreview = NFT_IMAGE_PLACEHOLDER;
+    let latestObjectUrl = null;
+
+    const closeModal = () => {
+      overlay.classList.remove('visible');
+      overlay.setAttribute('aria-hidden', 'true');
+      form.reset();
+      form.dataset.workId = '';
+      msgEl.textContent = '';
+      msgEl.classList.remove('err');
+      if (latestObjectUrl) {
+        URL.revokeObjectURL(latestObjectUrl);
+        latestObjectUrl = null;
+      }
+      previewImg.src = NFT_IMAGE_PLACEHOLDER;
+      currentPreview = NFT_IMAGE_PLACEHOLDER;
+    };
+
+    overlay.addEventListener('click', (evt) => {
+      if (evt.target === overlay) {
+        closeModal();
+      }
+    });
+
+    overlay.querySelector('[data-action="close-edit"]').addEventListener('click', (evt) => {
+      evt.preventDefault();
+      closeModal();
+    });
+
+    imageInput.addEventListener('change', () => {
+      if (latestObjectUrl) {
+        URL.revokeObjectURL(latestObjectUrl);
+        latestObjectUrl = null;
+      }
+      const file = imageInput.files && imageInput.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        latestObjectUrl = url;
+        previewImg.src = url;
+      } else {
+        previewImg.src = currentPreview;
+      }
+    });
+
+    form.addEventListener('submit', async (evt) => {
+      evt.preventDefault();
+      msgEl.textContent = '';
+      msgEl.classList.remove('err');
+      const workId = Number(form.dataset.workId);
+      if (!workId) {
+        msgEl.textContent = 'NFT inválida.';
+        msgEl.classList.add('err');
+        return;
+      }
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Salvando...';
+      const formData = new FormData(form);
+      formData.append('work_id', workId);
+      try {
+        const res = await fetch(API('admin_update_nft.php'), {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        if (res.status === 401) {
+          closeModal();
+          return needLogin();
+        }
+        if (res.status === 403) {
+          closeModal();
+          view.innerHTML = `<h1>Acesso restrito</h1><p>Somente administradores podem criar NFTs.</p>`;
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data && data.ok) {
+          msgEl.textContent = 'NFT atualizada com sucesso.';
+          if (data.image_url) {
+            currentPreview = data.image_url;
+            previewImg.src = data.image_url;
+          }
+          await refreshMintedList();
+          setTimeout(() => {
+            closeModal();
+          }, 700);
+        } else {
+          msgEl.textContent = data.detail || data.error || 'Falha ao atualizar NFT.';
+          msgEl.classList.add('err');
+        }
+      } catch (error) {
+        console.error(error);
+        msgEl.textContent = 'Erro inesperado ao atualizar NFT.';
+        msgEl.classList.add('err');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        imageInput.value = '';
+      }
+    });
+
+    return {
+      open(data) {
+        overlay.classList.add('visible');
+        overlay.removeAttribute('aria-hidden');
+        form.dataset.workId = data.workId || '';
+        titleInput.value = data.title || '';
+        descInput.value = data.description || '';
+        currentPreview = data.image || NFT_IMAGE_PLACEHOLDER;
+        previewImg.src = currentPreview;
+        msgEl.textContent = '';
+        msgEl.classList.remove('err');
+        imageInput.value = '';
+        if (latestObjectUrl) {
+          URL.revokeObjectURL(latestObjectUrl);
+          latestObjectUrl = null;
+        }
+      },
+      close: closeModal
+    };
+  };
+
+  const getMintedEditModal = (() => {
+    let modal;
+    return () => {
+      if (!modal) {
+        modal = createMintedEditModal();
+      }
+      return modal;
+    };
+  })();
+
   if (mintedContainer) {
     mintedContainer.addEventListener('click', async (evt) => {
+      const editBtn = evt.target.closest('[data-action="edit-minted"]');
+      if (editBtn) {
+        evt.preventDefault();
+        const modal = getMintedEditModal();
+        modal.open({
+          workId: Number(editBtn.getAttribute('data-work-id')),
+          title: editBtn.getAttribute('data-title') || '',
+          description: editBtn.getAttribute('data-description') || '',
+          image: editBtn.getAttribute('data-image') || NFT_IMAGE_PLACEHOLDER
+        });
+        return;
+      }
       const btn = evt.target.closest('[data-action="delete-minted"]');
       if (!btn) return;
       const workId = Number(btn.getAttribute('data-work-id'));
