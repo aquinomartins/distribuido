@@ -1639,6 +1639,17 @@ async function viewUserAssets(){
       <div class="user-asset-grid" id="userAssetSummary">
         ${renderUserAssetCardsHtml(assets)}
       </div>
+      <div class="user-nfts" data-role="user-nfts">
+        <h2>NFTs vinculadas</h2>
+        <p class="hint">Visualize as obras digitais atualmente sob sua custódia.</p>
+        <div class="user-nft-grid" data-role="user-nft-list"></div>
+        <p class="hint user-nft-empty" data-role="user-nft-message"></p>
+        <div class="user-nft-chassis" data-role="user-nft-chassis" hidden>
+          <h3>Chassis disponíveis</h3>
+          <p class="hint">Você possui chassis em branco prontos para novas mintagens.</p>
+          <ul class="user-nft-chassis-list" data-role="user-nft-chassis-list"></ul>
+        </div>
+      </div>
       <div class="other-users-assets">
         <h2>Ativos dos demais usuários</h2>
         <p class="hint">${esc(describeOtherUsersHeadline(otherUsersCount))}</p>
@@ -1648,6 +1659,8 @@ async function viewUserAssets(){
       </div>
       ${actionsSection}
     </div>`;
+
+  loadUserNfts(view.querySelector('[data-role="user-nfts"]'));
 
   if (!isOwner) {
     return;
@@ -1872,6 +1885,127 @@ async function viewUserAssets(){
       }
     });
   });
+}
+
+function normalizeUserNftWorks(rawWorks){
+  if (!Array.isArray(rawWorks)) return [];
+  return rawWorks.map((item)=>{
+    const work = item || {};
+    return {
+      work_id: work.work_id ?? work.id ?? null,
+      title: work.title || work.name || null,
+      asset_id: work.asset_id ?? null,
+      instance_id: work.instance_id ?? null,
+      token_id: work.token_id || work.asset_token_id || null,
+      image_url: work.image_url || work.thumbnail || work.thumbnail_url || work.cover_image || work.image || null,
+      collection: work.collection || work.collection_name || null
+    };
+  });
+}
+
+function renderUserNftCard(nft){
+  const title = nft.title || `NFT #${nft.work_id || nft.instance_id || nft.asset_id || '—'}`;
+  const subtitleParts = [];
+  if (nft.collection) subtitleParts.push(nft.collection);
+  if (nft.work_id) subtitleParts.push(`Obra #${nft.work_id}`);
+  const subtitle = subtitleParts.join(' · ');
+  const detailItems = [
+    nft.asset_id ? `<dt>Asset</dt><dd>#${esc(nft.asset_id)}</dd>` : '',
+    nft.instance_id ? `<dt>Instância</dt><dd>#${esc(nft.instance_id)}</dd>` : '',
+    nft.token_id ? `<dt>Token</dt><dd>${esc(nft.token_id)}</dd>` : ''
+  ].filter(Boolean).join('');
+  const details = detailItems || '<dt>ID</dt><dd>—</dd>';
+  const imageUrl = nft.image_url || NFT_IMAGE_PLACEHOLDER;
+  return `
+    <article class="user-nft-card">
+      <div class="user-nft-thumb">
+        <img src="${esc(imageUrl)}" alt="${esc(title)}" loading="lazy" />
+      </div>
+      <div class="user-nft-body">
+        ${subtitle ? `<p class="user-nft-subtitle">${esc(subtitle)}</p>` : ''}
+        <h3>${esc(title)}</h3>
+        <dl class="user-nft-meta">
+          ${details}
+        </dl>
+      </div>
+    </article>
+  `;
+}
+
+function renderUserNftChassisItem(item, index){
+  const chassis = item || {};
+  const size = chassis.size ? `Tamanho ${chassis.size}` : null;
+  const material = chassis.material || null;
+  const status = chassis.status || null;
+  const labelParts = [];
+  if (size) labelParts.push(size);
+  if (material) labelParts.push(material);
+  const label = labelParts.join(' · ') || `Chassi ${index + 1}`;
+  return `
+    <li>
+      <strong>${esc(label)}</strong>
+      ${status ? `<span>${esc(status)}</span>` : ''}
+    </li>
+  `;
+}
+
+async function loadUserNfts(section){
+  if (!section) return;
+  const listEl = section.querySelector('[data-role="user-nft-list"]');
+  const messageEl = section.querySelector('[data-role="user-nft-message"]');
+  const chassisBox = section.querySelector('[data-role="user-nft-chassis"]');
+  const chassisList = section.querySelector('[data-role="user-nft-chassis-list"]');
+  if (listEl) listEl.innerHTML = '';
+  if (messageEl) {
+    messageEl.textContent = 'Carregando NFTs registradas...';
+    messageEl.hidden = false;
+  }
+  if (chassisBox) chassisBox.hidden = true;
+
+  let nftData;
+  try {
+    nftData = await getJSON(API('nfts.php'));
+  } catch (err) {
+    if (messageEl) {
+      messageEl.textContent = 'Não foi possível carregar as NFTs no momento.';
+      messageEl.hidden = false;
+    }
+    return;
+  }
+
+  if (nftData.__auth === false) {
+    needLogin();
+    return;
+  }
+
+  if (nftData.__forbidden || nftData.error) {
+    if (messageEl) {
+      messageEl.textContent = nftData.message || 'Não foi possível carregar as NFTs no momento.';
+      messageEl.hidden = false;
+    }
+    return;
+  }
+
+  const works = normalizeUserNftWorks(nftData.obras);
+  const chassis = Array.isArray(nftData.chassis) ? nftData.chassis.filter(Boolean) : [];
+
+  if (works.length) {
+    if (listEl) listEl.innerHTML = works.map(renderUserNftCard).join('');
+    if (messageEl) messageEl.hidden = true;
+  } else if (messageEl) {
+    messageEl.textContent = 'Nenhuma NFT registrada no momento.';
+    messageEl.hidden = false;
+  }
+
+  if (chassisBox && chassisList) {
+    if (chassis.length) {
+      chassisBox.hidden = false;
+      chassisList.innerHTML = chassis.map((item, index)=>renderUserNftChassisItem(item, index)).join('');
+    } else {
+      chassisBox.hidden = true;
+      chassisList.innerHTML = '';
+    }
+  }
 }
 
 async function viewAdmin(){
