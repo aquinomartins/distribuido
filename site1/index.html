@@ -1479,36 +1479,6 @@
         max-width: 32ch;
       }
 
-      .blur-hero__metrics {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 0.9rem;
-        margin-top: 1.5rem;
-        list-style: none;
-        padding: 0;
-      }
-
-      .blur-hero__metrics li {
-        background: rgba(7, 9, 15, 0.55);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 0.95rem 1rem;
-        display: grid;
-        gap: 0.35rem;
-      }
-
-      .blur-hero__metrics span {
-        font-size: 0.74rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: rgba(244, 247, 255, 0.6);
-      }
-
-      .blur-hero__metrics strong {
-        font-size: 1.05rem;
-        color: #fff;
-      }
-
       .blur-hero__actions {
         display: flex;
         gap: 1rem;
@@ -1665,24 +1635,12 @@
         <div class="blur-hero__gradient" aria-hidden="true"></div>
 
         <div class="blur-hero__content" aria-live="polite">
-          <span class="blur-hero__kicker" id="blurHeroKicker">Meus Ativos</span>
-          <h1 class="blur-hero__title" id="blurHeroTitle">Saldo tokenizado consolidado em tempo real</h1>
-          <p class="blur-hero__subtitle" id="blurHeroSubtitle">
-            Acompanhe BRL, BTC, NFTs e cotas vinculadas à sua conta com os mesmos dados exibidos no app principal.
-          </p>
-          <ul class="blur-hero__metrics" id="blurHeroMetrics">
-            <li>
-              <span>Saldo disponível (R$)</span>
-              <strong>R$ 1,28 mi</strong>
-            </li>
-            <li>
-              <span>NFTs custodiadas</span>
-              <strong>18 obras</strong>
-            </li>
-          </ul>
+          <span class="blur-hero__kicker" id="blurHeroKicker">COLLECTION</span>
+          <h1 class="blur-hero__title" id="blurHeroTitle">Azuki — by Chiru Labs</h1>
+          <p class="blur-hero__subtitle" id="blurHeroSubtitle">Floor 0.90 Ξ · 24h Vol 119.2</p>
           <div class="blur-hero__actions">
-            <a class="btn btn-primary" id="blurHeroPrimary" href="../index.html?view=user_assets">Acessar Meus Ativos</a>
-            <a class="btn btn-outline" id="blurHeroSecondary" href="../index.html" hidden>Ver mais detalhes</a>
+            <a class="btn btn-primary" href="#">Explorar coleções</a>
+            <a class="btn btn-outline" href="#">Criar NFT</a>
           </div>
         </div>
 
@@ -1745,72 +1703,34 @@
       if (blurHeroSection) {
         const blurHeroItems = [
           {
-            label: "Meus Ativos",
-            kicker: "Meus Ativos",
-            title: "Meus Ativos — visão consolidada do investidor",
-            subtitle: "Saldo em BRL, BTC, NFTs e cotas sincronizado com o módulo contábil do app.",
-            image: "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=2400&auto=format&fit=crop",
-            metrics: [
-              { label: "Saldo disponível (R$)", value: "R$ 1,28 mi" },
-              { label: "BTC custodiado", value: "4,82 BTC" },
-            ],
-            link: "../index.html?view=user_assets",
-            primaryCta: "Acessar Meus Ativos",
+            label: "Orla Carioca",
+            title: "Orla Carioca — Estúdio Guanabara",
+            subtitle: "Floor 0.95 Ξ · Vol. 24h 118 Ξ",
+            image: "https://images.unsplash.com/photo-1526498460520-4c246339dccb?q=80&w=2400&auto=format&fit=crop",
           },
           {
-            label: "Transações pendentes",
-            kicker: "Transações Pendentes",
-            title: "Fluxo de aprovações em tempo real",
-            subtitle: "Centralize depósitos, compras e vendas aguardando confirmação da governança.",
-            image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=2400&auto=format&fit=crop",
-            metrics: [
-              { label: "Solicitações aguardando", value: "6 itens" },
-              { label: "Última atualização", value: "08h32 BRT" },
-            ],
-            link: "../index.html?view=pending_transactions",
-            primaryCta: "Revisar transações",
+            label: "Cyber Iara",
+            title: "Cyber Iara — Coletivo Oxum",
+            subtitle: "Floor 1.20 Ξ · Vol. 24h 88.4 Ξ",
+            image: "https://images.unsplash.com/photo-1604079628040-94301bb21b11?q=80&w=2400&auto=format&fit=crop",
           },
           {
-            label: "Mercado ao vivo",
-            kicker: "Mercado ao vivo",
-            title: "Livro e tape com atualização contínua",
-            subtitle: "Acompanhe preço executado, spread e liquidez do módulo de trading multiativo.",
-            image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=2400&auto=format&fit=crop",
-            metrics: [
-              { label: "Último trade BTC", value: "R$ 356.420" },
-              { label: "Volume 24h", value: "R$ 4,7 mi" },
-            ],
-            link: "../index.html?view=live_market",
-            primaryCta: "Abrir Mercado ao vivo",
-            secondaryLink: "../README_TRADING.md",
-            secondaryCta: "Ver manual do trading",
-            secondaryTarget: "_blank",
+            label: "Festival Prisma",
+            title: "Festival Prisma — Beats Tropicais",
+            subtitle: "Floor 0.68 Ξ · Vol. 24h 54.6 Ξ",
+            image: "https://images.unsplash.com/photo-1545239351-ef35f43d514b?q=80&w=2400&auto=format&fit=crop",
           },
           {
-            label: "Eventos",
-            kicker: "Eventos",
-            title: "Agenda de workshops e roadshows",
-            subtitle: "Divulgue ativações, webinars e encontros presenciais conectados ao marketplace.",
-            image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2400&auto=format&fit=crop",
-            metrics: [
-              { label: "Próxima agenda", value: "Token Summit · 05/07" },
-              { label: "Inscrições", value: "Lote 2 disponível" },
-            ],
-            link: "../index.html?view=events",
-            primaryCta: "Ver agenda de eventos",
+            label: "Encantos do Cerrado",
+            title: "Encantos do Cerrado — Futuro Cerrado",
+            subtitle: "Floor 1.7 Ξ · Vol. 24h 35.2 Ξ",
+            image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=2400&auto=format&fit=crop",
           },
           {
-            label: "Coleções",
-            kicker: "Coleções",
-            title: "Marketplace com NFTs próprias e listagens P2P",
-            subtitle: "Cards responsivos com floor, volume e mint interno do app principal.",
-            image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=2400&auto=format&fit=crop",
-            metrics: [
-              { label: "Listagens ativas", value: "42 NFTs" },
-              { label: "Mint interno", value: "128 itens" },
-            ],
-            link: "../index.html?view=collections",
-            primaryCta: "Explorar coleções",
+            label: "Neon Dreams",
+            title: "Neon Dreams — Neon Dreams Studio",
+            subtitle: "Floor 2.1 Ξ · Vol. 24h 62.8 Ξ",
+            image: "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2400&auto=format&fit=crop",
           },
         ];
 
@@ -1821,9 +1741,6 @@
         const blurHeroKicker = document.getElementById("blurHeroKicker");
         const blurHeroThumbbar = document.getElementById("blurHeroThumbbar");
         const blurHeroLive = document.getElementById("blurHeroLive");
-        const blurHeroMetrics = document.getElementById("blurHeroMetrics");
-        const blurHeroPrimary = document.getElementById("blurHeroPrimary");
-        const blurHeroSecondary = document.getElementById("blurHeroSecondary");
 
         let blurHeroIndex = 0;
         let blurHeroRotating = true;
@@ -1859,36 +1776,7 @@
 
           blurHeroTitle.textContent = item.title;
           blurHeroSubtitle.textContent = item.subtitle;
-          blurHeroKicker.textContent = item.kicker || item.label || "COLEÇÃO EM DESTAQUE";
-
-          if (blurHeroMetrics) {
-            const metrics = Array.isArray(item.metrics) ? item.metrics : [];
-            blurHeroMetrics.innerHTML = metrics
-              .map((metric) => {
-                const label = metric && metric.label ? metric.label : "";
-                const value = metric && metric.value ? metric.value : "";
-                return `<li><span>${label}</span><strong>${value}</strong></li>`;
-              })
-              .join("");
-          }
-
-          if (blurHeroPrimary) {
-            blurHeroPrimary.textContent = item.primaryCta || `Acessar ${item.label || "aba"}`;
-            blurHeroPrimary.href = item.link || "#";
-            blurHeroPrimary.target = item.target || "_self";
-          }
-
-          if (blurHeroSecondary) {
-            if (item.secondaryLink) {
-              blurHeroSecondary.hidden = false;
-              blurHeroSecondary.textContent = item.secondaryCta || "Ver detalhes";
-              blurHeroSecondary.href = item.secondaryLink;
-              blurHeroSecondary.target = item.secondaryTarget || "_self";
-            } else {
-              blurHeroSecondary.hidden = true;
-              blurHeroSecondary.removeAttribute("target");
-            }
-          }
+          blurHeroKicker.textContent = item.kicker || "COLEÇÃO EM DESTAQUE";
           updateThumbStates(nextIndex);
 
           if (announce && blurHeroLive) {
