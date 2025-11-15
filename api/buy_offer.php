@@ -5,6 +5,7 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/ledger.php';
 require_once __DIR__ . '/../lib/util.php';
+require_once __DIR__ . '/../lib/special_liquidity_user.php';
 require_login();
 $pdo = db();
 $buyer_id = current_user_id();
@@ -25,12 +26,42 @@ if (intval($offer['seller_id']) === $buyer_id) { http_response_code(400); echo j
 ensure_user_accounts($buyer_id);
 ensure_user_accounts(intval($offer['seller_id']));
 
-// Contas dinhei​​ro
+// Contas dinheiro
 $acc = $pdo->prepare("SELECT id FROM accounts WHERE owner_type='user' AND owner_id=? AND purpose=? AND currency=? LIMIT 1");
 $acc->execute([$buyer_id,'cash','BRL']);   $buyer_cash = $acc->fetchColumn();
 $acc->execute([$offer['seller_id'],'cash','BRL']);  $seller_cash = $acc->fetchColumn();
 
 $total = round(floatval($offer['qty']) * floatval($offer['price_brl']), 8);
+
+// saldo do comprador
+$balStmt = $pdo->prepare('SELECT COALESCE(SUM(debit - credit),0) FROM entries WHERE account_id = ?');
+$balStmt->execute([$buyer_cash]);
+$buyerBalance = (float)$balStmt->fetchColumn();
+if ($buyerBalance + 1e-8 < $total) {
+  http_response_code(400);
+  echo json_encode(['error' => 'insufficient_funds']);
+  exit;
+}
+
+if ($offer['kind'] === 'NFT') {
+  $assetStmt = $pdo->prepare('SELECT asset_id FROM asset_instances WHERE id = ? LIMIT 1');
+  $assetStmt->execute([intval($offer['asset_instance_id'])]);
+  $assetId = (int)$assetStmt->fetchColumn();
+  if ($assetId <= 0) {
+    http_response_code(404);
+    echo json_encode(['error' => 'asset_not_found']);
+    exit;
+  }
+
+  $posStmt = $pdo->prepare("SELECT qty FROM positions WHERE owner_type='user' AND owner_id=? AND asset_id=? LIMIT 1");
+  $posStmt->execute([intval($offer['seller_id']), $assetId]);
+  $sellerQty = (float)$posStmt->fetchColumn();
+  if ($sellerQty + 1e-8 < floatval($offer['qty'])) {
+    http_response_code(400);
+    echo json_encode(['error' => 'seller_not_owner']);
+    exit;
+  }
+}
 
 $pdo->beginTransaction();
 try{
@@ -49,6 +80,12 @@ try{
     $stmtMV = $pdo->prepare("INSERT INTO asset_moves(journal_id, asset_id, asset_instance_id, qty, from_account_id, to_account_id)
                              VALUES (?,?,?,?,?,?)");
     $stmtMV->execute([$jid, NULL, intval($offer['asset_instance_id']), floatval($offer['qty']), $seller_inv, $buyer_inv]);
+
+    $qtyInt = (int)round(floatval($offer['qty']));
+    if ($qtyInt > 0) {
+      adjust_special_liquidity_assets($pdo, $buyer_id, ['nft' => $qtyInt, 'brl' => -$total]);
+      adjust_special_liquidity_assets($pdo, intval($offer['seller_id']), ['nft' => -$qtyInt, 'brl' => $total]);
+    }
   }
   if ($offer['kind'] === 'BTC') {
     // transfere BTC carteira -> carteira (fungível)

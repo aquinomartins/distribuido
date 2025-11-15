@@ -857,6 +857,56 @@ function increment_special_liquidity_nft(PDO $pdo, int $userId, int $amount = 1)
   $stmt->execute([$delta, $userId]);
 }
 
+/**
+ * Ajusta incrementalmente os saldos de ativos especiais de um usuário.
+ * Aceita um array no formato ['nft'=>+1, 'brl'=>-500]. Valores nulos/zero são ignorados.
+ */
+function adjust_special_liquidity_assets(PDO $pdo, int $userId, array $delta): void {
+  if (empty($delta)) {
+    return;
+  }
+
+  $allowed = ['bitcoin', 'nft', 'brl', 'quotas'];
+  $sets = [];
+  $params = [];
+
+  foreach ($allowed as $field) {
+    if (!array_key_exists($field, $delta)) {
+      continue;
+    }
+    $value = $delta[$field];
+    if (!is_numeric($value)) {
+      continue;
+    }
+
+    if ($field === 'nft') {
+      $value = (int)round($value);
+      if ($value === 0) {
+        continue;
+      }
+      $sets[] = 'nft = GREATEST(0, COALESCE(nft, 0) + ?)';
+      $params[] = $value;
+    } else {
+      $value = (float)$value;
+      if (abs($value) < 1e-12) {
+        continue;
+      }
+      $sets[] = sprintf('%s = COALESCE(%s, 0) + ?', $field, $field);
+      $params[] = number_format($value, $field === 'brl' ? 2 : 8, '.', '');
+    }
+  }
+
+  if (!$sets) {
+    return;
+  }
+
+  ensure_special_liquidity_row($pdo, $userId);
+  $sql = 'UPDATE special_liquidity_assets SET ' . implode(', ', $sets) . ', updated_at = NOW() WHERE user_id = ?';
+  $params[] = $userId;
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute($params);
+}
+
 function apply_special_asset_action(PDO $pdo, int $userId, string $asset, string $action, $amount, $totalBrl = null, $counterpartyId = null): array {
   $allowedAssets = ['bitcoin', 'nft', 'brl', 'quotas'];
   if (!in_array($asset, $allowedAssets, true)) {
