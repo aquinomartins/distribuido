@@ -88,6 +88,100 @@ function formatSpecialAssetAmountText(asset, amount){
   return formatNumber(value);
 }
 
+function renderLandingView(){
+  return `
+    <section class="landing-hero">
+      <div class="hero-backdrop" aria-hidden="true"></div>
+      <div class="hero-content">
+        <p class="hero-kicker">hub distribuído</p>
+        <h1>Bem-vindo! Escolha um módulo do menu.</h1>
+        <p>
+          Explore os ambientes de mercado, coleções e eventos em um painel vivo.
+          Cada módulo foi desenhado para reagir em tempo real às decisões da sua
+          equipe.
+        </p>
+        <div class="hero-actions">
+          <a class="hero-cta" href="#appMenu">Explorar módulos</a>
+          <a class="hero-ghost" href="#" data-view="live_market">Ver mercado ao vivo</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-orb" aria-hidden="true"></div>
+        <div class="hero-grid" aria-hidden="true"></div>
+        <ul class="hero-modules">
+          <li>
+            <button class="hero-module" type="button" data-view="live_market" aria-label="Ir para Mercado ao vivo">
+              <span>01</span>
+              <strong>Mercado ao vivo</strong>
+              <small>Liquidez dinâmica 24/7</small>
+            </button>
+          </li>
+          <li>
+            <button class="hero-module" type="button" data-view="collections" aria-label="Ir para Coleções">
+              <span>02</span>
+              <strong>Coleções</strong>
+              <small>Curadoria generativa e NFT</small>
+            </button>
+          </li>
+          <li>
+            <button class="hero-module" type="button" data-view="events" aria-label="Ir para Eventos">
+              <span>03</span>
+              <strong>Eventos</strong>
+              <small>Streams, torneios e ativos raros</small>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="landing-panels" aria-label="Resumo dos módulos">
+      <a class="panel-card" href="#" data-view="user_assets" aria-label="Ir para 1.8 Meus Ativos">
+        <header>
+          <p>1.8 Meus Ativos</p>
+          <strong>Controle total</strong>
+        </header>
+        <p>Gestão detalhada das posições e NFTs com filtros avançados.</p>
+      </a>
+      <a class="panel-card" href="#" data-view="pending_transactions" aria-label="Ir para Transações pendentes">
+        <header>
+          <p>Transações pendentes</p>
+          <strong>Fluxo em tempo real</strong>
+        </header>
+        <p>Assuma o comando das aprovações e mantenha o time sincronizado.</p>
+      </a>
+      <a class="panel-card" href="#" data-view="liquidity_game" aria-label="Ir para Jogo Piscina de Liquidez">
+        <header>
+          <p>Jogo Piscina de Liquidez</p>
+          <strong>Simulações</strong>
+        </header>
+        <p>Teste cenários de liquidez e compartilhe insights com o grupo.</p>
+      </a>
+    </section>
+
+    <section class="landing-footer">
+      <div>
+        <span>Status</span>
+        <strong>Plataforma ativa</strong>
+      </div>
+      <div>
+        <span>Última atualização</span>
+        <strong>Agora mesmo</strong>
+      </div>
+      <div>
+        <span>Equipe logada</span>
+        <strong>Conecte-se pelo menu</strong>
+      </div>
+    </section>
+  `;
+}
+
+function viewHome(){
+  const view = document.getElementById('view');
+  if (!view) return;
+  view.className = 'landing-view';
+  view.innerHTML = renderLandingView();
+}
+
 /* ========= Coleções ========= */
 const MARKET_COLLECTIONS = [
   {
@@ -3569,6 +3663,7 @@ function viewCollections(){
 
 /* ========= Menu ========= */
 const VIEW_HANDLERS = {
+  home: viewHome,
   saldo: viewSaldo,
   bitcoin: viewBitcoin,
   nft: viewNFT,
@@ -3585,10 +3680,23 @@ const VIEW_HANDLERS = {
   admin_mint: viewAdminMint,
 };
 
+function setActiveMenuItem(viewName){
+  const menuLinks = document.querySelectorAll('.menu a[data-view]');
+  menuLinks.forEach(link=>{
+    const isActive = link.dataset.view === viewName;
+    link.classList.toggle('is-active', isActive);
+    if (isActive) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+}
+
 function updateViewQueryParam(viewName){
   try {
     const url = new URL(window.location.href);
-    if (viewName) {
+    if (viewName && viewName !== 'home') {
       url.searchParams.set('view', viewName);
     } else {
       url.searchParams.delete('view');
@@ -3605,6 +3713,7 @@ function navigateToView(viewName, options = {}){
   const handler = VIEW_HANDLERS[viewName];
   if (typeof handler !== 'function') return false;
   handler();
+  setActiveMenuItem(viewName);
   if (options.updateUrl) {
     updateViewQueryParam(viewName);
   }
@@ -3612,18 +3721,21 @@ function navigateToView(viewName, options = {}){
 }
 
 function initMenu(){
-  document.querySelectorAll('a[data-view]').forEach(a=>{
-    a.addEventListener('click', (e)=>{
-      e.preventDefault();
-      const viewName = a.dataset.view;
-      navigateToView(viewName, { updateUrl: true });
-    });
+  document.addEventListener('click', (event)=>{
+    const trigger = event.target.closest('[data-view]');
+    if (!trigger) return;
+    const viewName = trigger.dataset.view;
+    if (!viewName) return;
+    if (trigger.tagName === 'A' || trigger.tagName === 'BUTTON') {
+      event.preventDefault();
+    }
+    navigateToView(viewName, { updateUrl: true });
   });
 }
 
 function initResponsiveMenu(){
   const toggleBtn = document.getElementById('menuToggle');
-  const menuLinks = document.querySelectorAll('.menu a[data-view]');
+  const menuLinks = document.querySelectorAll('.menu [data-view]');
   if (!toggleBtn) return;
 
   const mobileQuery = window.matchMedia('(max-width: 960px)');
@@ -3680,6 +3792,8 @@ function initDeepLink(){
 }
 
 /* ========= Init ========= */
+const defaultViewName = document.getElementById('view')?.dataset.defaultView || 'home';
+navigateToView(defaultViewName, { updateUrl: false });
 initAuth();
 initMenu();
 initDeepLink();

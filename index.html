@@ -54,11 +54,12 @@
       <nav class="menu-nav" aria-label="Navegação principal">
         <p class="menu-nav__hint">Navegue entre os módulos</p>
         <ul>
+          <li><a href="#" data-view="home" aria-current="page">Home</a></li>
+          <li><a href="#" data-view="live_market">Mercado ao vivo</a></li>
+          <li><a href="#" data-view="collections">Coleções</a></li>
+          <li><a href="#" data-view="events">Eventos</a></li>
           <li><a href="#" data-view="user_assets">1.8 Meus Ativos</a></li>
           <li><a href="#" data-view="pending_transactions">Transações pendentes</a></li>
-          <li><a href="#" data-view="live_market">Mercado ao vivo</a></li>
-          <li><a href="#" data-view="events">Eventos</a></li>
-          <li><a href="#" data-view="collections">Coleções</a></li>
           <li><a href="#" data-view="liquidity_game">1.7 Jogo Piscina de Liquidez</a></li>
           <li class="admin-only"><a href="#" data-view="admin">Painel Administrativo</a></li>
           <li class="admin-only"><a href="#" data-view="admin_mint">Mint de NFT</a></li>
@@ -67,84 +68,7 @@
     </div>
   </aside>
 
-  <main id="view" class="landing-view">
-    <section class="landing-hero">
-      <div class="hero-backdrop" aria-hidden="true"></div>
-      <div class="hero-content">
-        <p class="hero-kicker">hub distribuído</p>
-        <h1>Bem-vindo! Escolha um módulo do menu.</h1>
-        <p>
-          Explore os ambientes de mercado, coleções e eventos em um painel vivo.
-          Cada módulo foi desenhado para reagir em tempo real às decisões da sua
-          equipe.
-        </p>
-        <div class="hero-actions">
-          <a class="hero-cta" href="#appMenu">Explorar módulos</a>
-          <a class="hero-ghost" href="#" data-view="live_market">Ver mercado ao vivo</a>
-        </div>
-      </div>
-      <div class="hero-visual">
-        <div class="hero-orb" aria-hidden="true"></div>
-        <div class="hero-grid" aria-hidden="true"></div>
-        <ul class="hero-modules">
-          <li>
-            <span>01</span>
-            <strong>Mercado ao vivo</strong>
-            <small>Liquidez dinâmica 24/7</small>
-          </li>
-          <li>
-            <span>02</span>
-            <strong>Coleções</strong>
-            <small>Curadoria generativa e NFT</small>
-          </li>
-          <li>
-            <span>03</span>
-            <strong>Eventos</strong>
-            <small>Streams, torneios e ativos raros</small>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="landing-panels" aria-label="Resumo dos módulos">
-      <article class="panel-card">
-        <header>
-          <p>1.8 Meus Ativos</p>
-          <strong>Controle total</strong>
-        </header>
-        <p>Gestão detalhada das posições e NFTs com filtros avançados.</p>
-      </article>
-      <article class="panel-card">
-        <header>
-          <p>Transações pendentes</p>
-          <strong>Fluxo em tempo real</strong>
-        </header>
-        <p>Assuma o comando das aprovações e mantenha o time sincronizado.</p>
-      </article>
-      <article class="panel-card">
-        <header>
-          <p>Jogo Piscina de Liquidez</p>
-          <strong>Simulações</strong>
-        </header>
-        <p>Teste cenários de liquidez e compartilhe insights com o grupo.</p>
-      </article>
-    </section>
-
-    <section class="landing-footer">
-      <div>
-        <span>Status</span>
-        <strong>Plataforma ativa</strong>
-      </div>
-      <div>
-        <span>Última atualização</span>
-        <strong>Agora mesmo</strong>
-      </div>
-      <div>
-        <span>Equipe logada</span>
-        <strong>Conecte-se pelo menu</strong>
-      </div>
-    </section>
-  </main>
+  <main id="view" class="landing-view" data-default-view="home"></main>
 
   <script src="app.js"></script>
 </body>
