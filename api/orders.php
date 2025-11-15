@@ -125,6 +125,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         ['account_id'=>$seller_cash, 'debit'=>$total],
         ['account_id'=>$buyer_cash,  'credit'=>$total],
       ]);
+      $brlDelta = round($total, 2);
 
       // Asset move (NFT or fungible)
       if ($asset_instance_id) {
@@ -137,6 +138,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         if ($nftDelta !== 0) {
           adjust_special_liquidity_assets($pdo, $buyer_id, ['nft' => $nftDelta]);
           adjust_special_liquidity_assets($pdo, $seller_id, ['nft' => -$nftDelta]);
+        }
+        if ($brlDelta > 0) {
+          adjust_special_liquidity_assets($pdo, $buyer_id, ['brl' => -$brlDelta]);
+          adjust_special_liquidity_assets($pdo, $seller_id, ['brl' => $brlDelta]);
         }
       } else {
         $stmtMV = $pdo->prepare("INSERT INTO asset_moves(journal_id, asset_id, asset_instance_id, qty, from_account_id, to_account_id)
