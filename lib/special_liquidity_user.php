@@ -7,6 +7,7 @@ const SPECIAL_LIQUIDITY_GUARDIAN_TABLE = 'special_liquidity_guardian';
 const SPECIAL_ASSET_ACTION_REQUESTS_TABLE = 'special_asset_action_requests';
 
 const SPECIAL_ASSET_ACTION_APPROVALS_TABLE = 'special_asset_action_approvals';
+const SPECIAL_ASSET_TRANSFERS_TABLE = 'special_asset_transfers';
 
 function format_special_asset_label(string $asset): string {
   switch (strtolower($asset)) {
@@ -192,6 +193,70 @@ function ensure_special_asset_action_requests_table(PDO $pdo): void {
     SPECIAL_ASSET_ACTION_REQUESTS_TABLE
   );
   $pdo->exec($sql);
+}
+
+
+function ensure_special_asset_transfers_table(PDO $pdo): void {
+  ensure_special_asset_action_requests_table($pdo);
+  $sql = sprintf(
+    'CREATE TABLE IF NOT EXISTS %s (
+      id BIGINT PRIMARY KEY AUTO_INCREMENT,
+      request_id BIGINT NULL,
+      asset VARCHAR(32) NOT NULL,
+      amount DECIMAL(24,8) NOT NULL,
+      total_brl DECIMAL(24,8) NULL,
+      from_user_id BIGINT NOT NULL,
+      to_user_id BIGINT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_request (request_id),
+      INDEX idx_transfer_from (from_user_id),
+      INDEX idx_transfer_to (to_user_id),
+      CONSTRAINT fk_special_transfer_request FOREIGN KEY (request_id) REFERENCES %s(id) ON DELETE SET NULL,
+      CONSTRAINT fk_special_transfer_from FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_special_transfer_to FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+    SPECIAL_ASSET_TRANSFERS_TABLE,
+    SPECIAL_ASSET_ACTION_REQUESTS_TABLE
+  );
+  $pdo->exec($sql);
+}
+
+function record_special_asset_transfer(PDO $pdo, array $transfer): void {
+  $asset = strtolower((string)($transfer['asset'] ?? ''));
+  $amount = isset($transfer['amount']) ? (float)$transfer['amount'] : 0.0;
+  $fromUser = isset($transfer['from_user_id']) ? (int)$transfer['from_user_id'] : 0;
+  $toUser = isset($transfer['to_user_id']) ? (int)$transfer['to_user_id'] : 0;
+  if ($asset === '' || $amount <= 0 || $fromUser <= 0 || $toUser <= 0) {
+    return;
+  }
+
+  $decimals = $asset === 'brl' ? 2 : 8;
+  $amountFormatted = number_format($amount, $decimals, '.', '');
+  $total = $transfer['total_brl'] ?? null;
+  $totalFormatted = null;
+  if ($total !== null) {
+    $totalFormatted = number_format((float)$total, 2, '.', '');
+  }
+
+  $requestId = isset($transfer['request_id']) ? (int)$transfer['request_id'] : null;
+  if ($requestId !== null && $requestId <= 0) {
+    $requestId = null;
+  }
+
+  ensure_special_asset_transfers_table($pdo);
+  $sql = sprintf(
+    'INSERT INTO %s (request_id, asset, amount, total_brl, from_user_id, to_user_id) VALUES (?, ?, ?, ?, ?, ?)',
+    SPECIAL_ASSET_TRANSFERS_TABLE
+  );
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute([
+    $requestId,
+    $asset,
+    $amountFormatted,
+    $totalFormatted,
+    $fromUser,
+    $toUser
+  ]);
 }
 
 
@@ -686,7 +751,8 @@ function execute_special_asset_action_request(PDO $pdo, int $requestId): array {
       (string)($payload['action'] ?? ''),
       $payload['amount'] ?? null,
       $payload['total_brl'] ?? null,
-      $payload['counterparty_id'] ?? null
+      $payload['counterparty_id'] ?? null,
+      $requestId
     );
     update_special_asset_action_request_status($pdo, $requestId, 'executed', null, false, true, false);
 
@@ -907,7 +973,7 @@ function adjust_special_liquidity_assets(PDO $pdo, int $userId, array $delta): v
   $stmt->execute($params);
 }
 
-function apply_special_asset_action(PDO $pdo, int $userId, string $asset, string $action, $amount, $totalBrl = null, $counterpartyId = null): array {
+function apply_special_asset_action(PDO $pdo, int $userId, string $asset, string $action, $amount, $totalBrl = null, $counterpartyId = null, ?int $requestId = null): array {
   $allowedAssets = ['bitcoin', 'nft', 'brl', 'quotas'];
   if (!in_array($asset, $allowedAssets, true)) {
     throw new InvalidArgumentException('Ativo inválido.');
@@ -1167,6 +1233,46 @@ function apply_special_asset_action(PDO $pdo, int $userId, string $asset, string
         number_format($counterpartyQuotas, 8, '.', ''),
         $counterpartyId
       ]);
+
+      $transferRows = [];
+      if ($asset === 'nft') {
+        $qtyInt = abs((int)round($qty));
+        if ($qtyInt > 0) {
+          $transferRows[] = [
+            'asset' => 'nft',
+            'amount' => $qtyInt,
+            'total_brl' => $totalValue,
+            'from_user_id' => $action === 'sell' ? $userId : $counterpartyId,
+            'to_user_id' => $action === 'sell' ? $counterpartyId : $userId,
+          ];
+        }
+      }
+
+      if ($asset === 'brl') {
+        $brlAmount = abs($qty);
+        if ($brlAmount > 0) {
+          $transferRows[] = [
+            'asset' => 'brl',
+            'amount' => $brlAmount,
+            'total_brl' => $brlAmount,
+            'from_user_id' => $action === 'sell' ? $userId : $counterpartyId,
+            'to_user_id' => $action === 'sell' ? $counterpartyId : $userId,
+          ];
+        }
+      } elseif ($totalValue !== null && $totalValue > 0) {
+        $transferRows[] = [
+          'asset' => 'brl',
+          'amount' => $totalValue,
+          'total_brl' => $totalValue,
+          'from_user_id' => $action === 'sell' ? $counterpartyId : $userId,
+          'to_user_id' => $action === 'sell' ? $userId : $counterpartyId,
+        ];
+      }
+
+      foreach ($transferRows as $transfer) {
+        $transfer['request_id'] = $requestId;
+        record_special_asset_transfer($pdo, $transfer);
+      }
     }
 
     $pdo->commit();
