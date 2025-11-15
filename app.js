@@ -236,6 +236,49 @@ const MARKET_COLLECTIONS = [
     ]
   }
 ];
+
+const PLATFORM_EVENTS = [
+  {
+    id: 'token_summit_brasilia',
+    title: 'Token Summit Brasília',
+    date: '2024-07-05T09:00:00-03:00',
+    location: 'Brasília/DF · Auditório B3',
+    type: 'Roadshow',
+    status: 'Lote 2 aberto',
+    seats: '60 vagas presenciais',
+    highlight: 'Demonstração do fluxo de ativos tokenizados e integração contábil.',
+    tags: ['Governança', 'Custódia'],
+    registrationUrl: 'mailto:eventos@ergasterio.com',
+    registrationLabel: 'Reservar vaga'
+  },
+  {
+    id: 'webinar_liquidez',
+    title: 'Webinar · Liquidez Especial 2.0',
+    date: '2024-07-18T11:00:00-03:00',
+    location: 'Online · Microsoft Teams',
+    type: 'Webinar',
+    status: 'Inscrições abertas',
+    seats: 'Vagas ilimitadas',
+    highlight: 'Atualização do módulo de transações pendentes e novas APIs.',
+    tags: ['API', 'Operações'],
+    registrationUrl: 'https://meet.ergasterio.com/liquidez',
+    registrationLabel: 'Inscrever-se'
+  },
+  {
+    id: 'creator_day_sp',
+    title: 'Creator Day São Paulo',
+    date: '2024-08-08T10:00:00-03:00',
+    location: 'São Paulo/SP · Hub Faria Lima',
+    type: 'Workshop',
+    status: 'Lista de espera',
+    seats: '40 lugares',
+    highlight: 'Imersão em coleções, mint interno e roteiro de vendas.',
+    tags: ['NFT', 'Marketplace'],
+    registrationUrl: 'https://meet.ergasterio.com/creator-day',
+    registrationLabel: 'Entrar na lista'
+  }
+];
+
 let collectionsEscHandler = null;
 let mintedCollectionsCache = [];
 
@@ -3366,6 +3409,67 @@ async function handleMarketplaceAction(event, section){
   }
 }
 
+function viewEvents(){
+  const view = document.getElementById('view');
+  if (!view) return;
+  const formatEventDateTime = (value) => {
+    const formatted = formatDateTime(value);
+    return formatted || 'Data a confirmar';
+  };
+  const cards = Array.isArray(PLATFORM_EVENTS) && PLATFORM_EVENTS.length
+    ? PLATFORM_EVENTS.map((event) => {
+        const dateLabel = formatEventDateTime(event.date);
+        const tags = Array.isArray(event.tags) && event.tags.length
+          ? `<ul class="event-card__tags">${event.tags.map((tag) => `<li>${esc(tag)}</li>`).join('')}</ul>`
+          : '';
+        const cta = event.registrationUrl
+          ? `<a class="event-card__cta" href="${esc(event.registrationUrl)}" target="_blank" rel="noreferrer">${esc(event.registrationLabel || 'Inscrever-se')}</a>`
+          : '<span class="event-card__cta event-card__cta--disabled">Agenda privada</span>';
+        return `
+          <article class="event-card" data-event="${esc(event.id)}">
+            <header class="event-card__header">
+              <span class="event-card__badge">${esc(event.type || 'Evento')}</span>
+              <time datetime="${esc(event.date || '')}">${esc(dateLabel)}</time>
+            </header>
+            <h3>${esc(event.title)}</h3>
+            <p>${esc(event.highlight || 'Atualização estratégica da plataforma.')}</p>
+            <ul class="event-card__meta">
+              <li><span>Local</span><strong>${esc(event.location || 'A definir')}</strong></li>
+              <li><span>Status</span><strong>${esc(event.status || 'Em breve')}</strong></li>
+              <li><span>Vagas</span><strong>${esc(event.seats || 'Sob consulta')}</strong></li>
+            </ul>
+            ${tags}
+            <div class="event-card__footer">
+              <div>
+                <small>Contato</small>
+                <strong>${esc(event.contact || 'eventos@ergasterio.com')}</strong>
+              </div>
+              ${cta}
+            </div>
+          </article>
+        `;
+      }).join('')
+    : '<p class="hint">Nenhum evento cadastrado até o momento.</p>';
+  const upcoming = Array.isArray(PLATFORM_EVENTS) && PLATFORM_EVENTS.length ? PLATFORM_EVENTS[0] : null;
+  const upcomingLabel = upcoming ? formatEventDateTime(upcoming.date) : 'Agenda em atualização';
+  view.innerHTML = `
+    <section class="events-view">
+      <header class="events-header">
+        <div>
+          <p>Agenda oficial</p>
+          <h1>Eventos e ativações da plataforma</h1>
+          <span>Sincronizados com o time de operações e atualizados nesta semana.</span>
+        </div>
+        <div class="events-highlight">
+          <strong>${esc(upcomingLabel)}</strong>
+          <span>Próximo encontro</span>
+        </div>
+      </header>
+      <div class="events-grid">${cards}</div>
+    </section>
+  `;
+}
+
 function viewCollections(){
   const view = document.getElementById('view');
   const firstCollection = MARKET_COLLECTIONS[0];
@@ -3464,28 +3568,72 @@ function viewCollections(){
 }
 
 /* ========= Menu ========= */
+const VIEW_HANDLERS = {
+  saldo: viewSaldo,
+  bitcoin: viewBitcoin,
+  nft: viewNFT,
+  mercado_nft: viewMercadoNFT,
+  mercado_btc: viewMercadoBTC,
+  live_market: viewLiveMarket,
+  trades: viewTrades,
+  user_assets: viewUserAssets,
+  pending_transactions: viewPendingTransactions,
+  liquidity_game: viewLiquidityGame,
+  collections: viewCollections,
+  events: viewEvents,
+  admin: viewAdmin,
+  admin_mint: viewAdminMint,
+};
+
+function updateViewQueryParam(viewName){
+  try {
+    const url = new URL(window.location.href);
+    if (viewName) {
+      url.searchParams.set('view', viewName);
+    } else {
+      url.searchParams.delete('view');
+    }
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, '', nextUrl);
+  } catch (err) {
+    console.warn('Não foi possível atualizar a URL do módulo.', err);
+  }
+}
+
+function navigateToView(viewName, options = {}){
+  if (!viewName) return false;
+  const handler = VIEW_HANDLERS[viewName];
+  if (typeof handler !== 'function') return false;
+  handler();
+  if (options.updateUrl) {
+    updateViewQueryParam(viewName);
+  }
+  return true;
+}
+
 function initMenu(){
   document.querySelectorAll('a[data-view]').forEach(a=>{
     a.addEventListener('click', (e)=>{
       e.preventDefault();
-      const v = a.dataset.view;
-      if (v==='saldo') return viewSaldo();
-      if (v==='bitcoin') return viewBitcoin();
-      if (v==='nft') return viewNFT();
-      if (v==='mercado_nft') return viewMercadoNFT();
-      if (v==='mercado_btc') return viewMercadoBTC();
-      if (v==='live_market') return viewLiveMarket();
-      if (v==='trades') return viewTrades();
-      if (v==='user_assets') return viewUserAssets();
-      if (v==='pending_transactions') return viewPendingTransactions();
-      if (v==='liquidity_game') return viewLiquidityGame();
-      if (v==='collections') return viewCollections();
-      if (v==='admin') return viewAdmin();
-      if (v==='admin_mint') return viewAdminMint();
+      const viewName = a.dataset.view;
+      navigateToView(viewName, { updateUrl: true });
     });
   });
+}
+
+function initDeepLink(){
+  try {
+    const url = new URL(window.location.href);
+    const viewParam = url.searchParams.get('view');
+    if (viewParam) {
+      navigateToView(viewParam);
+    }
+  } catch (err) {
+    console.warn('Não foi possível carregar o view a partir da URL.', err);
+  }
 }
 
 /* ========= Init ========= */
 initAuth();
 initMenu();
+initDeepLink();
