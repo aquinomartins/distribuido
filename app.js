@@ -3621,6 +3621,52 @@ function initMenu(){
   });
 }
 
+function initResponsiveMenu(){
+  const toggleBtn = document.getElementById('menuToggle');
+  const menuLinks = document.querySelectorAll('.menu a[data-view]');
+  if (!toggleBtn) return;
+
+  const mobileQuery = window.matchMedia('(max-width: 960px)');
+
+  const setExpanded = (expanded)=>{
+    toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  };
+
+  const closeMenu = ()=>{
+    document.body.classList.remove('menu-open');
+    setExpanded(false);
+  };
+
+  toggleBtn.addEventListener('click', ()=>{
+    const isOpen = document.body.classList.toggle('menu-open');
+    setExpanded(isOpen);
+  });
+
+  const handleViewportChange = (event)=>{
+    if (!event.matches) {
+      closeMenu();
+    }
+  };
+
+  if (typeof mobileQuery.addEventListener === 'function'){
+    mobileQuery.addEventListener('change', handleViewportChange);
+  } else if (typeof mobileQuery.addListener === 'function') {
+    mobileQuery.addListener(handleViewportChange);
+  }
+
+  const closeMenuOnNavigate = ()=>{
+    if (mobileQuery.matches) {
+      closeMenu();
+    }
+  };
+
+  menuLinks.forEach(link=>{
+    link.addEventListener('click', closeMenuOnNavigate);
+  });
+
+  setExpanded(false);
+}
+
 function initDeepLink(){
   try {
     const url = new URL(window.location.href);
@@ -3637,3 +3683,4 @@ function initDeepLink(){
 initAuth();
 initMenu();
 initDeepLink();
+initResponsiveMenu();
