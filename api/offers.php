@@ -33,15 +33,32 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 
   if ($kind === 'NFT') {
     if (!$asset_instance_id) { http_response_code(400); echo json_encode(['error'=>'missing_instance']); exit; }
-    // Verifica posse do NFT (positions > 0)
-    $sql = "SELECT p.qty
-            FROM positions p
-            JOIN asset_instances ai ON ai.id=?
-            JOIN assets a ON a.id=ai.asset_id
-            WHERE p.owner_type='user' AND p.owner_id=? AND (p.asset_instance_id=? OR p.asset_id=a.id) AND p.qty>0
-            LIMIT 1";
-    $st = $pdo->prepare($sql); $st->execute([$asset_instance_id,$uid,$asset_instance_id]);
-    if (!$st->fetch()) { http_response_code(400); echo json_encode(['error'=>'not_owner']); exit; }
+    $assetStmt = $pdo->prepare('SELECT asset_id FROM asset_instances WHERE id = ? LIMIT 1');
+    $assetStmt->execute([$asset_instance_id]);
+    $assetId = (int)$assetStmt->fetchColumn();
+    if ($assetId <= 0) {
+      http_response_code(404);
+      echo json_encode(['error' => 'asset_not_found']);
+      exit;
+    }
+
+    $qtyInt = (int)round($qty);
+    if (abs($qty - $qtyInt) > 1e-8 || $qtyInt <= 0) {
+      http_response_code(400);
+      echo json_encode(['error' => 'invalid_qty']);
+      exit;
+    }
+
+    $posStmt = $pdo->prepare("SELECT qty FROM positions WHERE owner_type='user' AND owner_id=? AND asset_id=? LIMIT 1");
+    $posStmt->execute([$uid, $assetId]);
+    $owned = (float)$posStmt->fetchColumn();
+    if ($owned < $qtyInt) {
+      http_response_code(400);
+      echo json_encode(['error' => 'not_owner']);
+      exit;
+    }
+
+    $qty = (float)$qtyInt;
   }
 
   $st = $pdo->prepare("INSERT INTO offers(seller_id,kind,asset_instance_id,qty,price_brl,status) VALUES (?,?,?,?,?,'open')");
