@@ -7,10 +7,24 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <aside class="menu">
-    <h3>Tela 1</h3>
+  <aside class="menu" id="appMenu">
+    <div class="menu-top">
+      <div class="menu-title">
+        <span class="menu-label">Dashboard</span>
+        <h3>Tela 1</h3>
+      </div>
+      <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="menuContent">
+        <span class="sr-only">Alternar navegação</span>
+        <span class="menu-toggle__icon" aria-hidden="true">
+          <span class="menu-toggle__bar"></span>
+          <span class="menu-toggle__bar"></span>
+          <span class="menu-toggle__bar"></span>
+        </span>
+      </button>
+    </div>
 
-    <div id="authBox" class="card">
+    <div class="menu-content" id="menuContent">
+      <div id="authBox" class="card">
       <!-- Login -->
       <form id="loginForm">
         <input type="email" id="email" placeholder="email" required />
@@ -35,18 +49,22 @@
         <button type="submit">Criar conta</button>
       </form>
       <p id="authMsg" class="msg"></p>
-    </div>
+      </div>
 
-    <ul>
-      <li><a href="#" data-view="user_assets">1.8 Meus Ativos</a></li>
-      <li><a href="#" data-view="pending_transactions">Transações pendentes</a></li>
-      <li><a href="#" data-view="live_market">Mercado ao vivo</a></li>
-      <li><a href="#" data-view="events">Eventos</a></li>
-      <li><a href="#" data-view="collections">Coleções</a></li>
-      <li><a href="#" data-view="liquidity_game">1.7 Jogo Piscina de Liquidez</a></li>
-      <li class="admin-only"><a href="#" data-view="admin">Painel Administrativo</a></li>
-      <li class="admin-only"><a href="#" data-view="admin_mint">Mint de NFT</a></li>
-    </ul>
+      <nav class="menu-nav" aria-label="Navegação principal">
+        <p class="menu-nav__hint">Navegue entre os módulos</p>
+        <ul>
+          <li><a href="#" data-view="user_assets">1.8 Meus Ativos</a></li>
+          <li><a href="#" data-view="pending_transactions">Transações pendentes</a></li>
+          <li><a href="#" data-view="live_market">Mercado ao vivo</a></li>
+          <li><a href="#" data-view="events">Eventos</a></li>
+          <li><a href="#" data-view="collections">Coleções</a></li>
+          <li><a href="#" data-view="liquidity_game">1.7 Jogo Piscina de Liquidez</a></li>
+          <li class="admin-only"><a href="#" data-view="admin">Painel Administrativo</a></li>
+          <li class="admin-only"><a href="#" data-view="admin_mint">Mint de NFT</a></li>
+        </ul>
+      </nav>
+    </div>
   </aside>
 
   <main id="view">
