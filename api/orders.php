@@ -82,6 +82,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   // For SELL: match against highest-price BUY with same asset
   $remaining = $qty;
 
+  $balanceStmt = $pdo->prepare('SELECT COALESCE(SUM(debit - credit),0) FROM entries WHERE account_id = ?');
   while ($remaining > 0.00000001) {
     if ($side === 'buy') {
       $q = "SELECT * FROM orders WHERE status='open' AND side='sell' AND price<=? ";
@@ -99,6 +100,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
     $match_qty = min($remaining, floatval($match['qty']));
     $exec_price = floatval($match['price']); // price do agressado
+    $total = round($match_qty * $exec_price, 8);
 
     // Settle trade via ledger + asset_moves
     $pdo->beginTransaction();
@@ -119,8 +121,16 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $acc2->execute([$buyer_id,'nft_inventory']);  $buyer_inv = $acc2->fetchColumn();
       $acc2->execute([$seller_id,'nft_inventory']); $seller_inv = $acc2->fetchColumn();
 
+      // Validate saldo BRL para compras de NFT
+      if ($asset_instance_id) {
+        $balanceStmt->execute([$buyer_cash]);
+        $buyerBalance = (float)$balanceStmt->fetchColumn();
+        if ($buyerBalance + 1e-8 < $total) {
+          throw new Exception('insufficient_brl_balance');
+        }
+      }
+
       // Journal money legs
-      $total = round($match_qty * $exec_price, 8);
       $jid = post_journal('trade', NULL, 'Liquidacao de trade', [
         ['account_id'=>$seller_cash, 'debit'=>$total],
         ['account_id'=>$buyer_cash,  'credit'=>$total],
@@ -170,6 +180,19 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $remaining = round($remaining - $match_qty, 8);
     } catch(Exception $e){
       $pdo->rollBack();
+      if ($e->getMessage() === 'insufficient_brl_balance') {
+        if ($buyer_id === $uid) {
+          $pdo->prepare("UPDATE orders SET status='cancelled' WHERE id=?")
+              ->execute([$order_id]);
+          http_response_code(400);
+          echo json_encode(['error' => 'insufficient_brl']);
+          exit;
+        } else {
+          $pdo->prepare("UPDATE orders SET status='cancelled' WHERE id=?")
+              ->execute([intval($match['id'])]);
+          continue;
+        }
+      }
       http_response_code(400);
       echo json_encode(['error'=>'settlement_failed','detail'=>$e->getMessage()]);
       exit;
