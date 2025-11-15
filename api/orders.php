@@ -4,6 +4,7 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/ledger.php';
 require_once __DIR__ . '/../lib/util.php';
+require_once __DIR__ . '/../lib/special_liquidity_user.php';
 require_login();
 
 $pdo = db();
@@ -131,6 +132,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $stmtMV = $pdo->prepare("INSERT INTO asset_moves(journal_id, asset_id, asset_instance_id, qty, from_account_id, to_account_id)
                                  VALUES (?,?,?,?,?,?)");
         $stmtMV->execute([$jid, NULL, $asset_instance_id, $match_qty, $seller_inv, $buyer_inv]);
+
+        $nftDelta = (int)round($match_qty);
+        if ($nftDelta !== 0) {
+          adjust_special_liquidity_assets($pdo, $buyer_id, ['nft' => $nftDelta]);
+          adjust_special_liquidity_assets($pdo, $seller_id, ['nft' => -$nftDelta]);
+        }
       } else {
         $stmtMV = $pdo->prepare("INSERT INTO asset_moves(journal_id, asset_id, asset_instance_id, qty, from_account_id, to_account_id)
                                  VALUES (?,?,?,?,?,?)");
