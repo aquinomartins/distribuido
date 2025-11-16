@@ -51,6 +51,10 @@ small.hint { color:#6b7280; }
 .special-asset-card span { font-weight:600; color:#111827; margin-bottom:6px; }
 .special-asset-card input { background:#fff; color:#111827; border:1px solid #cbd5f5; border-radius:8px; padding:8px; width:100%; }
 .game-setup { margin-bottom:16px; }
+.player-selection { background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:14px; margin:16px 0; }
+.player-selection h3 { margin:0 0 8px; color:#111827; }
+.player-selection label { color:#1f2937; margin-bottom:6px; }
+.player-selection p { margin:8px 0 0; }
 .game-summary { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0; }
 .game-summary .summary-card { background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:10px 14px; min-width:180px; }
 .game-summary .summary-card h4 { margin:0 0 6px; font-size:1rem; color:#1f2937; }
