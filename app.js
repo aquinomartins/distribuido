@@ -843,6 +843,42 @@ const LIQUIDITY_STAGE_LABELS = {
   finished: 'Jogo encerrado'
 };
 
+function renderLiquidityPlayerRosterSection(players, options={}){
+  const list = Array.isArray(players) ? players : [];
+  const isAdmin = !!options.isAdmin;
+  const playerCount = list.length;
+  const title = options.title || (isAdmin ? `Jogadores cadastrados (${playerCount})` : 'Seus ativos iniciais');
+  const intro = options.intro !== undefined
+    ? options.intro
+    : (isAdmin ? '' : '<p class="hint">Esta sessão mostra somente os seus saldos registrados no sistema.</p>');
+  const emptyMessage = options.emptyMessage || '<p class="hint">Nenhum jogador cadastrado para o jogo no momento.</p>';
+  const fallbackSelfLabel = options.viewerLabel || 'Você';
+
+  const items = list.map((player, idx)=>{
+    const name = (player && typeof player.name === 'string') ? player.name.trim() : '';
+    const label = name || (isAdmin ? `Jogador ${idx + 1}` : fallbackSelfLabel);
+    const assets = normalizeSpecialAssets(player && player.assets);
+    const summary = [
+      `BTC: ${formatBTC(assets.bitcoin)}`,
+      `NFTs: ${assets.nft}`,
+      `R$: ${formatBRL(assets.brl)}`,
+      `Cotas: ${formatNumber(assets.quotas)}`
+    ].join(' • ');
+    return `<li><strong>${esc(label)}</strong><br><small>${esc(summary)}</small></li>`;
+  }).join('');
+
+  const listHtml = playerCount
+    ? `<ol class="player-list">${items}</ol>`
+    : emptyMessage;
+
+  return `
+    <div class="player-roster">
+      <h3>${esc(title)}</h3>
+      ${intro}
+      ${listHtml}
+    </div>`;
+}
+
 function activeLiquidityTeams(state){
   return state.teams.filter(t=>!t.eliminated);
 }
@@ -864,24 +900,11 @@ async function viewLiquidityGame(){
   if (stateLoaded === false) return needLogin();
   const minPlayers = currentSession.is_admin ? 2 : 1;
   const playerCount = liquidityPlayers.length;
-  const playerItems = liquidityPlayers
-    .map((player, idx)=>{
-      const label = player.name
-        ? player.name
-        : (currentSession.is_admin ? `Jogador ${idx + 1}` : 'Você');
-      const assets = normalizeSpecialAssets(player && player.assets);
-      const summary = [
-        `BTC: ${formatBTC(assets.bitcoin)}`,
-        `NFTs: ${assets.nft}`,
-        `R$: ${formatBRL(assets.brl)}`,
-        `Cotas: ${formatNumber(assets.quotas)}`
-      ].join(' • ');
-      return `<li><strong>${esc(label)}</strong><br><small>${esc(summary)}</small></li>`;
-    })
-    .join('');
-  const playerList = playerCount
-    ? `<ol class="player-list">${playerItems}</ol>`
-    : '<p class="hint">Nenhum dado disponível para o seu usuário no momento.</p>';
+  const rosterEmptyMessage = '<p class="hint">Nenhum dado disponível para o seu usuário no momento.</p>';
+  const rosterSection = renderLiquidityPlayerRosterSection(liquidityPlayers, {
+    isAdmin: currentSession.is_admin,
+    emptyMessage: rosterEmptyMessage
+  });
   const btnLabel = liquidityGame ? 'Reiniciar jogo' : 'Iniciar jogo';
   const disabledAttr = playerCount < minPlayers ? 'disabled' : '';
   const warning = playerCount < minPlayers
@@ -889,20 +912,12 @@ async function viewLiquidityGame(){
       ? '<p class="hint err">Cadastre pelo menos 2 usuários confirmados para iniciar o jogo.</p>'
       : '<p class="hint err">Seus ativos ainda não estão disponíveis para o jogo. Verifique com o administrador.</p>')
     : '<p class="hint">Cada jogador inicia com os saldos registrados em Ativos protegidos (R$, BTC, NFTs e cotas). Você pode renomear o time (apelido) após o início.</p>';
-  const rosterTitle = currentSession.is_admin ? `Jogadores cadastrados (${playerCount})` : 'Seus ativos iniciais';
-  const rosterIntro = currentSession.is_admin
-    ? ''
-    : '<p class="hint">Esta sessão mostra somente os seus saldos registrados no sistema.</p>';
 
   view.innerHTML = `
     <div class="section game-setup">
       <h1>Jogo Piscina de Liquidez</h1>
       <p>Gerencie as ações disponíveis, a semifinal (times com NFT em mãos) e a final para definir quem lidera em reais nesse jogo com NFTs, Bitcoin e cotas da piscina de liquidez.</p>
-      <div class="player-roster">
-        <h3>${esc(rosterTitle)}</h3>
-        ${rosterIntro}
-        ${playerList}
-      </div>
+      ${rosterSection}
       <div class="actions">
         <button id="startGameBtn" ${disabledAttr}>${btnLabel}</button>
       </div>
@@ -2267,9 +2282,12 @@ async function viewAdmin(){
   const view = document.getElementById('view');
   view.innerHTML = `<h1>Painel Administrativo</h1><p>Carregando informações...</p>`;
 
-  const data = await getJSON(API('admin_users.php'));
-  if (data.__auth === false) return needLogin();
-  if (data.__forbidden) {
+  const [data, liquidityData] = await Promise.all([
+    getJSON(API('admin_users.php')),
+    getJSON(API('users.php'))
+  ]);
+  if (data.__auth === false || liquidityData.__auth === false) return needLogin();
+  if (data.__forbidden || liquidityData.__forbidden) {
     view.innerHTML = `<h1>Acesso restrito</h1><p>Somente administradores podem visualizar esta área.</p>`;
     return;
   }
@@ -2290,6 +2308,12 @@ async function viewAdmin(){
     especial: Number(u.is_special_liquidity_user) === 1 ? 'Sim' : 'Não',
     criado_em: esc(u.created_at ?? '')
   }));
+
+  const liquidityPlayers = Array.isArray(liquidityData && liquidityData.users) ? liquidityData.users : [];
+  const rosterSection = renderLiquidityPlayerRosterSection(liquidityPlayers, {
+    isAdmin: true,
+    emptyMessage: '<p class="hint">Nenhum jogador cadastrado para o jogo no momento.</p>'
+  });
 
   const stats = `
     <div class="stats">
@@ -2313,6 +2337,7 @@ async function viewAdmin(){
       <h1>Painel Administrativo</h1>
       <p>Visualize rapidamente os usuários confirmados e quem possui acesso administrativo.</p>
       ${stats}
+      ${rosterSection}
       <div class="card admin-special-user">
         <h2>Usuário Especial</h2>
         <p class="hint">Escolha o usuário que poderá controlar os ativos da piscina de liquidez.</p>
