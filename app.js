@@ -811,6 +811,26 @@ async function loadLiquidityGameState(){
   return true;
 }
 
+const LIQUIDITY_ANONYMOUS_PLAYER_ASSETS = {
+  brl: 1600,
+  bitcoin: 0,
+  nft: 1,
+  quotas: 0
+};
+
+function createAnonymousLiquidityPlayers(count){
+  const total = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+  const players = [];
+  for (let i = 0; i < total; i += 1){
+    players.push({
+      id: null,
+      name: `Time ${i + 1}`,
+      assets: { ...LIQUIDITY_ANONYMOUS_PLAYER_ASSETS }
+    });
+  }
+  return players;
+}
+
 function createLiquidityGame(players, minPlayers = 1){
   const list = Array.isArray(players) ? players : [];
   const validPlayers = list
@@ -944,7 +964,7 @@ async function viewLiquidityGame(){
     ? (currentSession.is_admin
       ? '<p class="hint err">Cadastre pelo menos 2 usuários confirmados para iniciar o jogo.</p>'
       : '<p class="hint err">Seus ativos ainda não estão disponíveis para o jogo. Verifique com o administrador.</p>')
-    : '<p class="hint">Cada jogador inicia com os saldos registrados em Ativos protegidos (R$, BTC, NFTs e cotas). Você pode renomear o time (apelido) após o início.</p>';
+    : '<p class="hint">Cada time anônimo inicia com R$ 1.600 e 1 NFT (sem BTC ou cotas). Você pode renomear o time após o início.</p>';
 
   view.innerHTML = `
     <div class="section game-setup">
@@ -969,7 +989,7 @@ async function viewLiquidityGame(){
       }
       const selectEl = document.getElementById('playerCountSelect');
       const selectedPlayers = selectEl ? Math.max(minPlayers, Math.min(parseInt(selectEl.value, 10) || minPlayers, maxSelectablePlayers)) : liquidityPlayers.length;
-      const gamePlayers = liquidityPlayers.slice(0, selectedPlayers);
+      const gamePlayers = createAnonymousLiquidityPlayers(selectedPlayers);
       const game = createLiquidityGame(gamePlayers, minPlayers);
       if (!game){
         alert('Não foi possível iniciar o jogo com os usuários cadastrados.');
