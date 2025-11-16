@@ -988,18 +988,16 @@ function renderLiquidityGameArea(){
   const container = document.getElementById('gameArea');
   if (!container) return;
   scheduleLiquidityGameSave();
-  const specialPanel = renderSpecialLiquidityAssetsPanel();
   const minPlayers = currentSession.is_admin ? 2 : 1;
   if (!liquidityGame){
     const count = liquidityPlayers.length;
     if (count >= minPlayers){
-      container.innerHTML = `${specialPanel}<p class="hint">Clique em <strong>Iniciar jogo</strong> para começar com os ${count} jogador(es) cadastrados.</p>`;
+      container.innerHTML = `<p class="hint">Clique em <strong>Iniciar jogo</strong> para começar com os ${count} jogador(es) cadastrados.</p>`;
     } else if (count > 0){
-      container.innerHTML = `${specialPanel}<p class="hint">${currentSession.is_admin ? 'Cadastre pelo menos mais um usuário confirmado para iniciar o jogo.' : 'Seus ativos ainda não estão disponíveis para simulação. Entre em contato com o administrador.'}</p>`;
+      container.innerHTML = `<p class="hint">${currentSession.is_admin ? 'Cadastre pelo menos mais um usuário confirmado para iniciar o jogo.' : 'Seus ativos ainda não estão disponíveis para simulação. Entre em contato com o administrador.'}</p>`;
     } else {
-      container.innerHTML = `${specialPanel}<p class="hint">${currentSession.is_admin ? 'Cadastre novos usuários para habilitar o jogo.' : 'Nenhum ativo encontrado para o seu usuário no momento.'}</p>`;
+      container.innerHTML = `<p class="hint">${currentSession.is_admin ? 'Cadastre novos usuários para habilitar o jogo.' : 'Nenhum ativo encontrado para o seu usuário no momento.'}</p>`;
     }
-    attachSpecialAssetsListeners();
     return;
   }
   const state = liquidityGame;
@@ -1056,7 +1054,6 @@ function renderLiquidityGameArea(){
     </div>` : '';
 
   container.innerHTML = `
-    ${specialPanel}
     <div class="game-summary">
       <div class="summary-card">
         <h4>Fase atual</h4>
@@ -1130,7 +1127,6 @@ function renderLiquidityGameArea(){
       <h2>Histórico</h2>
       ${state.history.length ? `<ol class="game-history">${historyItems}</ol>` : '<p class="hint">As ações aparecem aqui conforme o jogo avança.</p>'}
     </section>`;
-  attachSpecialAssetsListeners();
 
   container.querySelectorAll('.rename-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
