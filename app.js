@@ -914,11 +914,30 @@ async function viewLiquidityGame(){
   if (stateLoaded === false) return needLogin();
   const minPlayers = currentSession.is_admin ? 2 : 1;
   const playerCount = liquidityPlayers.length;
-  const rosterEmptyMessage = '<p class="hint">Nenhum dado disponível para o seu usuário no momento.</p>';
-  const rosterSection = renderLiquidityPlayerRosterSection(liquidityPlayers, {
-    isAdmin: currentSession.is_admin,
-    emptyMessage: rosterEmptyMessage
-  });
+  const maxSelectablePlayers = Math.min(10, playerCount);
+  const minSelectablePlayers = Math.max(minPlayers, 1);
+  const canSelectPlayers = maxSelectablePlayers >= minSelectablePlayers;
+  const defaultSelection = canSelectPlayers
+    ? Math.max(minSelectablePlayers, Math.min(maxSelectablePlayers, playerCount))
+    : null;
+  let playerSelectionSection = '<p class="hint err">Nenhum jogador disponível para iniciar o jogo.</p>';
+  if (canSelectPlayers) {
+    const options = [];
+    for (let i = minSelectablePlayers; i <= maxSelectablePlayers; i += 1) {
+      const plural = i > 1 ? 'es' : '';
+      options.push(`<option value="${i}"${i === defaultSelection ? ' selected' : ''}>${i} jogador${plural}</option>`);
+    }
+    const availabilityNote = playerCount > 10
+      ? `<p class="hint">Jogadores disponíveis: ${playerCount}. Somente 10 podem participar por partida.</p>`
+      : `<p class="hint">Jogadores disponíveis: ${playerCount}.</p>`;
+    playerSelectionSection = `
+      <div class="player-selection">
+        <h3>Quantidade de jogadores</h3>
+        <label for="playerCountSelect">Escolha quantos participantes iniciarão o jogo (máximo de 10):</label>
+        <select id="playerCountSelect">${options.join('')}</select>
+        ${availabilityNote}
+      </div>`;
+  }
   const btnLabel = liquidityGame ? 'Reiniciar jogo' : 'Iniciar jogo';
   const disabledAttr = playerCount < minPlayers ? 'disabled' : '';
   const warning = playerCount < minPlayers
@@ -931,7 +950,7 @@ async function viewLiquidityGame(){
     <div class="section game-setup">
       <h1>Jogo Piscina de Liquidez</h1>
       <p>Gerencie as ações disponíveis, a semifinal (times com NFT em mãos) e a final para definir quem lidera em reais nesse jogo com NFTs, Bitcoin e cotas da piscina de liquidez.</p>
-      ${rosterSection}
+      ${playerSelectionSection}
       <div class="actions">
         <button id="startGameBtn" ${disabledAttr}>${btnLabel}</button>
       </div>
@@ -948,7 +967,10 @@ async function viewLiquidityGame(){
           : 'Seus ativos ainda não estão disponíveis para o jogo. Verifique com o administrador.');
         return;
       }
-      const game = createLiquidityGame(liquidityPlayers, minPlayers);
+      const selectEl = document.getElementById('playerCountSelect');
+      const selectedPlayers = selectEl ? Math.max(minPlayers, Math.min(parseInt(selectEl.value, 10) || minPlayers, maxSelectablePlayers)) : liquidityPlayers.length;
+      const gamePlayers = liquidityPlayers.slice(0, selectedPlayers);
+      const game = createLiquidityGame(gamePlayers, minPlayers);
       if (!game){
         alert('Não foi possível iniciar o jogo com os usuários cadastrados.');
         return;
