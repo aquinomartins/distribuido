@@ -83,6 +83,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $remaining = $qty;
 
   $balanceStmt = $pdo->prepare('SELECT COALESCE(SUM(debit - credit),0) FROM entries WHERE account_id = ?');
+  $specialLiquidityUserId = special_liquidity_user_id($pdo);
+  $specialLiquidityCache = [];
   while ($remaining > 0.00000001) {
     if ($side === 'buy') {
       $q = "SELECT * FROM orders WHERE status='open' AND side='sell' AND price<=? ";
@@ -121,11 +123,28 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $acc2->execute([$buyer_id,'nft_inventory']);  $buyer_inv = $acc2->fetchColumn();
       $acc2->execute([$seller_id,'nft_inventory']); $seller_inv = $acc2->fetchColumn();
 
-      // Validate saldo BRL para compras de NFT
+      // Validate saldo BRL para compras de NFT. O guardião especial
+      // utiliza os registros da tabela special_liquidity_assets, já que o
+      // caixa dele não passa pelo razão tradicional.
       if ($asset_instance_id) {
         $balanceStmt->execute([$buyer_cash]);
         $buyerBalance = (float)$balanceStmt->fetchColumn();
-        if ($buyerBalance + 1e-8 < $total) {
+        $hasFunds = ($buyerBalance + 1e-8) >= $total;
+
+        if (!$hasFunds && $specialLiquidityUserId && $buyer_id === $specialLiquidityUserId) {
+          if (!array_key_exists($buyer_id, $specialLiquidityCache)) {
+            $specialLiquidityCache[$buyer_id] = get_special_liquidity_assets($pdo, $buyer_id);
+          }
+          $specialBrl = isset($specialLiquidityCache[$buyer_id]['brl'])
+            ? (float)$specialLiquidityCache[$buyer_id]['brl']
+            : 0.0;
+          if ($specialBrl + 1e-8 >= $total) {
+            $specialLiquidityCache[$buyer_id]['brl'] = $specialBrl - $total;
+            $hasFunds = true;
+          }
+        }
+
+        if (!$hasFunds) {
           throw new Exception('insufficient_brl_balance');
         }
       }
