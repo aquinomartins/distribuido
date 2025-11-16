@@ -721,6 +721,20 @@ function attachSpecialAssetsListeners(){
   });
 }
 
+async function syncSpecialAssetsFromServer(force=false){
+  if (!currentSession.is_special_liquidity_user) return false;
+  if (!force && liquiditySpecialAssets) return true;
+  try {
+    const data = await getJSON(API('liquidity_game_state.php'));
+    if (data.__auth === false) return false;
+    liquiditySpecialAssets = normalizeSpecialAssets(data && data.special_assets);
+    return true;
+  } catch (err) {
+    console.error('Erro ao sincronizar ativos protegidos:', err);
+    return false;
+  }
+}
+
 async function persistLiquidityGameState(force=false){
   const payload = liquidityGame ? serializeLiquidityGameState(liquidityGame) : null;
   const requestBody = { state: payload };
@@ -2314,6 +2328,11 @@ async function viewAdmin(){
     isAdmin: true,
     emptyMessage: '<p class="hint">Nenhum jogador cadastrado para o jogo no momento.</p>'
   });
+  let specialAssetsSection = '';
+  if (currentSession.is_special_liquidity_user) {
+    await syncSpecialAssetsFromServer(true);
+    specialAssetsSection = renderSpecialLiquidityAssetsPanel();
+  }
 
   const stats = `
     <div class="stats">
@@ -2338,6 +2357,7 @@ async function viewAdmin(){
       <p>Visualize rapidamente os usuários confirmados e quem possui acesso administrativo.</p>
       ${stats}
       ${rosterSection}
+      ${specialAssetsSection}
       <div class="card admin-special-user">
         <h2>Usuário Especial</h2>
         <p class="hint">Escolha o usuário que poderá controlar os ativos da piscina de liquidez.</p>
@@ -2415,6 +2435,10 @@ async function viewAdmin(){
       btnEl.disabled = false;
       btnEl.textContent = 'Transformar em Usuário Especial';
     });
+  }
+
+  if (specialAssetsSection) {
+    attachSpecialAssetsListeners();
   }
 }
 
