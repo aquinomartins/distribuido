@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/ledger.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/auctions.php';
+require_once __DIR__ . '/../lib/util.php';
 
 require_login();
 header('Content-Type: application/json');
@@ -38,9 +39,16 @@ $escrowStmt = $pdo->prepare("SELECT id FROM accounts WHERE owner_type='user' AND
 $escrowStmt->execute([$uid]);
 $escrowId = $escrowStmt->fetchColumn();
 if (!$cashId || !$escrowId) {
-  http_response_code(400);
-  echo json_encode(['error' => 'missing_accounts']);
-  exit;
+  ensure_user_accounts($uid);
+  $cashStmt->execute([$uid]);
+  $cashId = $cashStmt->fetchColumn();
+  $escrowStmt->execute([$uid]);
+  $escrowId = $escrowStmt->fetchColumn();
+  if (!$cashId || !$escrowId) {
+    http_response_code(400);
+    echo json_encode(['error' => 'missing_accounts']);
+    exit;
+  }
 }
 
 $pdo->beginTransaction();
