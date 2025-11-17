@@ -3995,6 +3995,7 @@ async function submitBidForm(form){
       if (code === 'amount_too_low') text = 'Lance abaixo do mínimo permitido para este lote.';
       else if (code === 'auction_not_running' || code === 'auction_closed') text = 'Leilão não está mais ativo.';
       else if (code === 'auction_not_found') text = 'Leilão não encontrado.';
+      else if (code === 'auction_not_started') text = 'Leilão ainda não começou.';
       else if (code === 'amount_invalid') text = 'Informe um valor de lance válido.';
       else if (code === 'missing_accounts') text = 'Sua conta não possui as carteiras necessárias para dar lances.';
       if (msg) {
