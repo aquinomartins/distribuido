@@ -6,7 +6,6 @@ require_once __DIR__ . '/../lib/auctions.php';
 header('Content-Type: application/json');
 $pdo = db();
 auctions_sync_statuses($pdo);
-auctions_ensure_profiles_table($pdo);
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'GET') {
@@ -28,15 +27,13 @@ function handle_auctions_list(PDO $pdo) {
   $placeholders = implode(',', array_fill(0, count($allowedStatuses), '?'));
   $sql = "SELECT a.id, a.seller_id, a.asset_instance_id, a.starts_at, a.ends_at, a.reserve_price, a.status,
                  u.name AS seller_name, u.email AS seller_email,
-                 ap.title AS profile_title, ap.description AS profile_description, ap.image_url AS profile_image_url,
                  JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.image')) AS image_url,
                  JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.description')) AS nft_description,
                  JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.name')) AS nft_title,
                  w.title AS work_title, w.id AS work_id
-         FROM auctions a
-         LEFT JOIN users u ON u.id = a.seller_id
-         LEFT JOIN auction_profiles ap ON ap.auction_id = a.id
-         LEFT JOIN asset_instances ai ON ai.id = a.asset_instance_id
+          FROM auctions a
+          LEFT JOIN users u ON u.id = a.seller_id
+          LEFT JOIN asset_instances ai ON ai.id = a.asset_instance_id
           LEFT JOIN works w ON w.asset_instance_id = ai.id
           WHERE a.status IN ($placeholders)
           ORDER BY CASE a.status WHEN 'running' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, a.ends_at ASC, a.id DESC";
@@ -78,9 +75,7 @@ function handle_auctions_list(PDO $pdo) {
     $nextMinimum = $status === 'running'
       ? auctions_next_minimum_bid($row['reserve_price'], $highestAmount)
       : null;
-    $title = $row['profile_title'] ?? $row['work_title'] ?? $row['nft_title'] ?? ('NFT #' . $aid);
-    $description = $row['profile_description'] ?? $row['nft_description'] ?? '';
-    $image = $row['profile_image_url'] ?? $row['image_url'] ?? null;
+    $title = $row['work_title'] ?? $row['nft_title'] ?? ('NFT #' . $aid);
     return [
       'id' => $aid,
       'seller_id' => isset($row['seller_id']) ? (int)$row['seller_id'] : null,
@@ -88,8 +83,8 @@ function handle_auctions_list(PDO $pdo) {
       'seller_email' => $row['seller_email'] ?? null,
       'asset_instance_id' => isset($row['asset_instance_id']) ? (int)$row['asset_instance_id'] : null,
       'title' => $title,
-      'description' => $description,
-      'image_url' => $image,
+      'description' => $row['nft_description'] ?? '',
+      'image_url' => $row['image_url'] ?? null,
       'reserve_price' => (float)$row['reserve_price'],
       'status' => $status,
       'starts_at' => auctions_format_datetime_for_api($row['starts_at'] ?? null),
@@ -137,15 +132,7 @@ function create_auction(PDO $pdo, array $body) {
   $startsAtRaw = $body['starts_at'] ?? null;
   $endsAtRaw = $body['ends_at'] ?? null;
   $reserve = isset($body['reserve_price']) ? max(0, (float)$body['reserve_price']) : 0.0;
-  $title = trim((string)($body['title'] ?? ''));
-  $description = trim((string)($body['description'] ?? ''));
-  $imageUrl = trim((string)($body['image_url'] ?? ''));
-  if ($imageUrl !== '' && !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'invalid_image_url']);
-    return;
-  }
-  if (!$sellerId || !$startsAtRaw || !$endsAtRaw || $title === '') {
+  if (!$sellerId || !$assetInstanceId || !$startsAtRaw || !$endsAtRaw) {
     http_response_code(400);
     echo json_encode(['error' => 'missing_fields']);
     return;
@@ -175,16 +162,12 @@ function create_auction(PDO $pdo, array $body) {
     echo json_encode(['error' => 'seller_not_found']);
     return;
   }
-  if ($assetInstanceId) {
-    $assetCheck = $pdo->prepare("SELECT id FROM asset_instances WHERE id = ? LIMIT 1");
-    $assetCheck->execute([$assetInstanceId]);
-    if (!$assetCheck->fetchColumn()) {
-      http_response_code(400);
-      echo json_encode(['error' => 'asset_not_found']);
-      return;
-    }
-  } else {
-    $assetInstanceId = null;
+  $assetCheck = $pdo->prepare("SELECT id FROM asset_instances WHERE id = ? LIMIT 1");
+  $assetCheck->execute([$assetInstanceId]);
+  if (!$assetCheck->fetchColumn()) {
+    http_response_code(400);
+    echo json_encode(['error' => 'asset_not_found']);
+    return;
   }
 
   $status = ($startsAt <= $now) ? 'running' : 'draft';
@@ -198,9 +181,7 @@ function create_auction(PDO $pdo, array $body) {
     $reserve,
     $status
   ]);
-  $auctionId = (int)$pdo->lastInsertId();
-  auctions_save_profile($pdo, $auctionId, $title, $description, $imageUrl);
-  echo json_encode(['ok' => true, 'auction_id' => $auctionId, 'status' => $status]);
+  echo json_encode(['ok' => true, 'auction_id' => (int)$pdo->lastInsertId(), 'status' => $status]);
 }
 
 function mutate_auction_status(PDO $pdo, array $body, string $mode) {

@@ -170,16 +170,6 @@ CREATE TABLE auctions (
   FOREIGN KEY (seller_id) REFERENCES users(id)
 );
 
-CREATE TABLE auction_profiles (
-  auction_id BIGINT PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  description TEXT NULL,
-  image_url VARCHAR(500) NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (auction_id) REFERENCES auctions(id)
-);
-
 CREATE TABLE bids (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   auction_id BIGINT NOT NULL,
