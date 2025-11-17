@@ -1401,8 +1401,6 @@ async function refreshAuthUI(){
     name: s && s.name ? String(s.name) : null,
     email: s && s.email ? String(s.email) : null,
     is_admin: !!(s && s.is_admin),
-    has_phone: !!(s && s.has_phone),
-    phone: s && s.phone ? String(s.phone) : null,
     is_special_liquidity_user: !!(s && s.is_special_liquidity_user),
     special_liquidity_email: s && s.special_liquidity_email ? String(s.special_liquidity_email) : null
   };
@@ -3886,7 +3884,6 @@ function buildAuctionCard(auction, nowMs){
         </label>
         <button type="submit">Dar lance</button>
         <p class="msg auction-msg" data-role="bid-msg"></p>
-        <div class="auction-phone-capture" data-role="inline-phone-container"></div>
       </form>
     `
     : '<p class="auction-closed">Lances indisponíveis para este leilão.</p>';
@@ -3963,13 +3960,9 @@ async function submitBidForm(form){
   const amountInput = form.querySelector('input[name="amount"]');
   const button = form.querySelector('button[type="submit"]');
   const msg = form.querySelector('[data-role="bid-msg"]');
-  const phoneContainer = form.querySelector('[data-role="inline-phone-container"]');
   if (msg) {
     msg.textContent = '';
     msg.classList.remove('err');
-  }
-  if (phoneContainer && phoneContainer.dataset.state !== 'success') {
-    phoneContainer.innerHTML = '';
   }
   if (!amountInput) return;
   const amount = Number(amountInput.value);
@@ -3995,18 +3988,11 @@ async function submitBidForm(form){
         msg.classList.remove('err');
       }
       amountInput.value = '';
-      if (phoneContainer) {
-        phoneContainer.innerHTML = '';
-        delete phoneContainer.dataset.state;
-      }
       await loadAuctionsSection(document.getElementById('view'));
     } else {
       const code = payload.error || 'unknown_error';
       let text = 'Não foi possível registrar o lance.';
-      if (code === 'phone_required') {
-        text = 'Cadastre um telefone válido para participar dos leilões.';
-        showInlinePhoneCapture(form);
-      }
+      if (code === 'phone_required') text = 'Cadastre um telefone válido para participar dos leilões.';
       else if (code === 'amount_too_low') text = 'Lance abaixo do mínimo permitido para este lote.';
       else if (code === 'auction_not_running' || code === 'auction_closed') text = 'Leilão não está mais ativo.';
       else if (code === 'auction_not_found') text = 'Leilão não encontrado.';
@@ -4026,91 +4012,7 @@ async function submitBidForm(form){
   }
 }
 
-function showInlinePhoneCapture(form){
-  const container = form.querySelector('[data-role="inline-phone-container"]');
-  if (!container || container.dataset.state === 'success') return;
-  if (container.querySelector('[data-role="phone-capture-form"]')) return;
-  container.innerHTML = `
-    <form class="inline-phone-form" data-role="phone-capture-form">
-      <p>Informe seu telefone para habilitar os lances neste leilão.</p>
-      <label>
-        Telefone com DDD
-        <input type="tel" name="phone" placeholder="(11) 90000-0000" required />
-      </label>
-      <div class="inline-phone-actions">
-        <button type="submit">Cadastrar telefone</button>
-      </div>
-      <p class="msg" data-role="phone-capture-msg"></p>
-    </form>
-  `;
-}
-
-async function submitInlinePhoneForm(form){
-  const phoneInput = form.querySelector('input[name="phone"]');
-  const msg = form.querySelector('[data-role="phone-capture-msg"]');
-  const button = form.querySelector('button[type="submit"]');
-  if (msg) {
-    msg.textContent = '';
-    msg.classList.remove('err');
-  }
-  const phone = phoneInput ? phoneInput.value.trim() : '';
-  if (phone === '') {
-    if (msg) {
-      msg.textContent = 'Informe um telefone válido com DDD.';
-      msg.classList.add('err');
-    }
-    return;
-  }
-  if (button) button.disabled = true;
-  try {
-    const res = await fetch(API('update_phone.php'), {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone })
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (res.ok && payload.ok) {
-      if (msg) {
-        msg.textContent = 'Telefone cadastrado! Agora você pode dar lances.';
-        msg.classList.remove('err');
-      }
-      const container = form.closest('[data-role="inline-phone-container"]');
-      if (container) {
-        container.dataset.state = 'success';
-        container.innerHTML = '<p class="hint">Telefone cadastrado! Tente novamente enviar o lance.</p>';
-      }
-      if (currentSession) {
-        currentSession.has_phone = true;
-        currentSession.phone = payload.phone || phone;
-      }
-    } else {
-      const code = payload.error || 'unknown_error';
-      let text = 'Não foi possível cadastrar o telefone.';
-      if (code === 'phone_invalid') text = 'Erro: informe um telefone válido com DDD.';
-      else if (code === 'phone_required') text = 'Erro: o telefone é obrigatório.';
-      if (msg) {
-        msg.textContent = text;
-        msg.classList.add('err');
-      }
-    }
-  } catch (err) {
-    if (msg) {
-      msg.textContent = 'Erro ao cadastrar telefone. Tente novamente.';
-      msg.classList.add('err');
-    }
-  } finally {
-    if (button) button.disabled = false;
-  }
-}
-
 async function handleAuctionSubmit(event){
-  const phoneForm = event.target.closest('[data-role="phone-capture-form"]');
-  if (phoneForm) {
-    event.preventDefault();
-    await submitInlinePhoneForm(phoneForm);
-    return;
-  }
   const form = event.target.closest('[data-role="bid-form"]');
   if (form) {
     event.preventDefault();
