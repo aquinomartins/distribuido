@@ -373,3 +373,46 @@ small.hint { color:#6b7280; }
 .minted-edit-panel button[type="submit"]:disabled { opacity:.6; cursor:not-allowed; transform:none; }
 .minted-edit-panel .msg { min-height:20px; margin:4px 0 0; }
 
+.auctions-view { display:flex; flex-direction:column; gap:20px; padding:24px; }
+.auctions-shell { display:flex; flex-direction:column; gap:20px; }
+.auctions-hero { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; background:#0f172a; color:#f8fafc; padding:24px; border-radius:20px; box-shadow:0 24px 50px rgba(15,23,42,0.55); }
+.auctions-hero h1 { margin:4px 0; font-size:2rem; }
+.auctions-hero span { color:#94a3b8; display:block; margin-top:6px; }
+.auction-hero-actions button { width:auto; }
+.auctions-instructions, .auctions-admin-note { margin:0; color:#94a3b8; }
+.auction-list { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:18px; }
+.auction-card { display:flex; gap:18px; background:#0b1120; border:1px solid rgba(148,163,184,0.25); border-radius:18px; padding:18px; color:#f8fafc; box-shadow:0 20px 45px rgba(15,23,42,0.55); }
+.auction-thumb img { width:140px; height:140px; object-fit:cover; border-radius:14px; border:1px solid rgba(255,255,255,0.08); }
+.auction-body { flex:1; display:flex; flex-direction:column; gap:12px; }
+.auction-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.auction-header p { margin:0; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; }
+.auction-header h2 { margin:4px 0; font-size:1.4rem; }
+.auction-status { background:#1d4ed8; border-radius:999px; padding:4px 12px; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; }
+.auction-timer { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.auction-phase { border-radius:999px; padding:4px 12px; font-size:0.85rem; background:#334155; color:#f8fafc; }
+.auction-phase[data-state="running"] { background:#10b981; color:#05261a; }
+.auction-phase[data-state="waiting"] { background:#2563eb; }
+.auction-phase[data-state="uma"] { background:#f97316; color:#1c1917; }
+.auction-phase[data-state="duas"] { background:#fbbf24; color:#1c1917; }
+.auction-phase[data-state="tres"], .auction-phase[data-state="ended"] { background:#ef4444; color:#fff; }
+.auction-timer strong { font-size:1.5rem; }
+.auction-meta { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin:0; }
+.auction-meta div { background:rgba(15,23,42,0.65); border-radius:12px; padding:10px; }
+.auction-meta dt { margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; }
+.auction-meta dd { margin:4px 0 0; font-size:1rem; font-weight:600; }
+.auction-seller { margin:0; font-size:0.9rem; color:#cbd5f5; }
+.auction-reserve { margin:0; font-size:0.9rem; color:#fbbf24; }
+.auction-reserve.ok { color:#34d399; }
+.auction-bid-form { display:flex; flex-direction:column; gap:10px; }
+.auction-bid-form input { background:#0f172a; color:#f8fafc; border:1px solid rgba(148,163,184,0.35); border-radius:10px; }
+.auction-bid-form button { width:auto; align-self:flex-start; }
+.auction-closed { margin:0; color:#cbd5f5; }
+.auction-admin-wrapper { margin-top:8px; }
+.auction-admin.card { background:#0f172a; color:#f8fafc; border-radius:20px; padding:20px; border:1px solid rgba(148,163,184,0.25); box-shadow:0 22px 40px rgba(15,23,42,0.5); }
+.auction-create-form { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:12px; }
+.auction-create-form label { display:flex; flex-direction:column; gap:6px; font-size:0.9rem; color:#f8fafc; }
+.auction-create-form select, .auction-create-form input { width:100%; margin:0; background:#0b1120; color:#f8fafc; border:1px solid rgba(148,163,184,0.35); border-radius:10px; padding:8px; }
+.auction-create-form button { width:auto; }
+.auction-admin-table-wrapper { margin-top:20px; overflow-x:auto; }
+.auction-admin-table button { width:auto; padding:6px 12px; }
+.auctions-view .hint { margin:0; }

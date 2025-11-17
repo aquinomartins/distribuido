@@ -504,6 +504,7 @@ CREATE TABLE `users` (
   `id` bigint NOT NULL,
   `name` varchar(120) NOT NULL,
   `email` varchar(160) DEFAULT NULL,
+  `phone` varchar(40) DEFAULT NULL,
   `password_hash` varchar(255) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `confirmed` tinyint DEFAULT '0',
@@ -514,19 +515,19 @@ CREATE TABLE `users` (
 -- Despejando dados para a tabela `users`
 --
 
-INSERT INTO `users` (`id`, `name`, `email`, `password_hash`, `created_at`, `confirmed`, `is_admin`) VALUES
-(1, 'Demo', 'demo@artx', 'x', '2025-10-29 02:32:49', 0, 0),
-(2, 'aqyo', 'aquinomartins.art@gmail.com', '$2y$10$xEl6WrRLdyKfBu17dW7IKe8.hxKsoeXCInt32i/LytJqzYi6RfvQ2', '2025-10-29 02:48:49', 1, 1),
-(3, 'maria', 'mariaaqui@gmail.com', '$2y$10$4.QM2P615hITRzV2rdyr/.WP5hInaKL1YYOflglVR.xnApKy8VxZu', '2025-10-29 02:56:54', 0, 0),
-(9, 'martys', 'alvorascapital@gmail.com', '$2y$10$0up.acQQw4X1HU9DkTQXduL2sMQtP.mua8qNjr0FRagssFEyK5yzK', '2025-10-29 04:05:08', 1, 0),
-(11, 'Abr3', 'tra32@gmail.com', '$2y$10$OPBtznx/VSh9C9ml/6edXOC5UE5lPf33s.YpFIFO0ZrP7S1W2F9C.', '2025-11-02 21:06:54', 0, 0),
-(12, 'Ines ABN', 'ines.abn@gmail.com', '$2y$10$WBw6SD.yGF0YGpEqqAl8.uECd7KN./n2TPRqScojNtPpUNi1uguiG', '2025-11-03 13:16:18', 1, 0),
-(13, 'Neide', 'neideals0809@gmail.com', '$2y$10$9MRwCY/GDcfhfYpVgiP6oePv0f/9SZdimW.ZXLSFcTmmogAUdqGRW', '2025-11-03 14:14:50', 0, 0),
-(14, 'abraao', 'contasala770@gmail.com', '$2y$10$.IEOdrh5uUH2lRzieILXVOHp4hLBY14wBgHGLiVjbGDpjzcl33Skm', '2025-11-04 01:41:40', 1, 0),
-(17, 'GEMNIO12h', 'gemnio.com.br@gmail.com', '$2y$10$2Xz3BKTpo3Aro1W0ad4d.e5zDrG8GxzztQurdBmNHegTFb/VMEzJ.', '2025-11-05 16:08:55', 1, 0),
-(18, 'Giulia', 'giuliacacaes2@gmail.com', '$2y$10$gqKf3H8k6wZnXnSp7hNUpuJF7ssdjDMCxfSvjC2vQUJdtjNjeVF4a', '2025-11-07 14:37:42', 1, 0),
-(48, 'Davi', 'davifigueira126@gmail.com', '$2y$10$lmJmdHwdFgvPK.TMPJmHAuDGhXiHG2WBT1JPRA3ZQO6479Asav3b.', '2025-11-07 16:47:25', 1, 0),
-(49, 'Lucas Cacaes', 'lucascacaes@gmail.com', '$2y$10$.idO9xe7xD6HHPMTWSdo8Op2xlgTAfjSi3U/J0UMwwxvNRWIeI7C2', '2025-11-07 16:49:26', 0, 0);
+INSERT INTO `users` (`id`, `name`, `email`, `phone`, `password_hash`, `created_at`, `confirmed`, `is_admin`) VALUES
+(1, 'Demo', 'demo@artx', NULL, 'x', '2025-10-29 02:32:49', 0, 0),
+(2, 'aqyo', 'aquinomartins.art@gmail.com', NULL, '$2y$10$xEl6WrRLdyKfBu17dW7IKe8.hxKsoeXCInt32i/LytJqzYi6RfvQ2', '2025-10-29 02:48:49', 1, 1),
+(3, 'maria', 'mariaaqui@gmail.com', NULL, '$2y$10$4.QM2P615hITRzV2rdyr/.WP5hInaKL1YYOflglVR.xnApKy8VxZu', '2025-10-29 02:56:54', 0, 0),
+(9, 'martys', 'alvorascapital@gmail.com', NULL, '$2y$10$0up.acQQw4X1HU9DkTQXduL2sMQtP.mua8qNjr0FRagssFEyK5yzK', '2025-10-29 04:05:08', 1, 0),
+(11, 'Abr3', 'tra32@gmail.com', NULL, '$2y$10$OPBtznx/VSh9C9ml/6edXOC5UE5lPf33s.YpFIFO0ZrP7S1W2F9C.', '2025-11-02 21:06:54', 0, 0),
+(12, 'Ines ABN', 'ines.abn@gmail.com', NULL, '$2y$10$WBw6SD.yGF0YGpEqqAl8.uECd7KN./n2TPRqScojNtPpUNi1uguiG', '2025-11-03 13:16:18', 1, 0),
+(13, 'Neide', 'neideals0809@gmail.com', NULL, '$2y$10$9MRwCY/GDcfhfYpVgiP6oePv0f/9SZdimW.ZXLSFcTmmogAUdqGRW', '2025-11-03 14:14:50', 0, 0),
+(14, 'abraao', 'contasala770@gmail.com', NULL, '$2y$10$.IEOdrh5uUH2lRzieILXVOHp4hLBY14wBgHGLiVjbGDpjzcl33Skm', '2025-11-04 01:41:40', 1, 0),
+(17, 'GEMNIO12h', 'gemnio.com.br@gmail.com', NULL, '$2y$10$2Xz3BKTpo3Aro1W0ad4d.e5zDrG8GxzztQurdBmNHegTFb/VMEzJ.', '2025-11-05 16:08:55', 1, 0),
+(18, 'Giulia', 'giuliacacaes2@gmail.com', NULL, '$2y$10$gqKf3H8k6wZnXnSp7hNUpuJF7ssdjDMCxfSvjC2vQUJdtjNjeVF4a', '2025-11-07 14:37:42', 1, 0),
+(48, 'Davi', 'davifigueira126@gmail.com', NULL, '$2y$10$lmJmdHwdFgvPK.TMPJmHAuDGhXiHG2WBT1JPRA3ZQO6479Asav3b.', '2025-11-07 16:47:25', 1, 0),
+(49, 'Lucas Cacaes', 'lucascacaes@gmail.com', NULL, '$2y$10$.idO9xe7xD6HHPMTWSdo8Op2xlgTAfjSi3U/J0UMwwxvNRWIeI7C2', '2025-11-07 16:49:26', 0, 0);
 
 -- --------------------------------------------------------
 

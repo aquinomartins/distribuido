@@ -21,11 +21,11 @@ function ensure_user_accounts($user_id){
 /**
  * Cria um usuário com senha criptografada e garante as contas padrão.
  */
-function create_user_with_accounts($name, $email, $password){
+function create_user_with_accounts($name, $email, $password, $phone = null){
   $pdo = db();
-  $stmt = $pdo->prepare("INSERT INTO users(name,email,password_hash) VALUES (?,?,?)");
+  $stmt = $pdo->prepare("INSERT INTO users(name,email,phone,password_hash) VALUES (?,?,?,?)");
   $hash = password_hash($password, PASSWORD_BCRYPT);
-  $stmt->execute([$name, $email, $hash]);
+  $stmt->execute([$name, $email, $phone, $hash]);
   $uid = intval($pdo->lastInsertId());
   ensure_user_accounts($uid);
   return $uid;

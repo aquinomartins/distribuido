@@ -5,24 +5,25 @@ $pdo = db();
 $message = '';
 $current = null;
 
-$stmt = $pdo->prepare('SELECT id, name FROM users WHERE email = ? LIMIT 1');
+$stmt = $pdo->prepare('SELECT id, name, phone FROM users WHERE email = ? LIMIT 1');
 $stmt->execute([SPECIAL_LIQUIDITY_USER_EMAIL]);
 $current = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $password = $_POST['password'] ?? '';
+    $phone = trim($_POST['phone'] ?? '');
     $bitcoin = $_POST['bitcoin'] ?? 0;
     $nft = $_POST['nft'] ?? 0;
     $brl = $_POST['brl'] ?? 0;
     $quotas = $_POST['quotas'] ?? 0;
 
-    if ($name && $password) {
+    if ($name && $password && $phone) {
         $pdo->beginTransaction();
         try {
             if ($current) {
-                $stmt = $pdo->prepare('UPDATE users SET name = ? WHERE id = ?');
-                $stmt->execute([$name, $current['id']]);
+                $stmt = $pdo->prepare('UPDATE users SET name = ?, phone = ? WHERE id = ?');
+                $stmt->execute([$name, $phone, $current['id']]);
                 $userId = (int)$current['id'];
                 if (!empty($password)) {
                     $hash = password_hash($password, PASSWORD_BCRYPT);
@@ -30,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 $hash = password_hash($password, PASSWORD_BCRYPT);
-                $stmt = $pdo->prepare('INSERT INTO users (name, email, password_hash, confirmed, is_admin) VALUES (?, ?, ?, 1, 0)');
-                $stmt->execute([$name, SPECIAL_LIQUIDITY_USER_EMAIL, $hash]);
+                $stmt = $pdo->prepare('INSERT INTO users (name, email, phone, password_hash, confirmed, is_admin) VALUES (?, ?, ?, ?, 1, 0)');
+                $stmt->execute([$name, SPECIAL_LIQUIDITY_USER_EMAIL, $phone, $hash]);
                 $userId = (int)$pdo->lastInsertId();
             }
             save_special_liquidity_assets($pdo, $userId, [
@@ -43,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_special_liquidity_user($pdo, $userId);
             $pdo->commit();
             $message = '✅ Usuário especial configurado com sucesso!';
-            $stmt = $pdo->prepare('SELECT id, name FROM users WHERE email = ? LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, name, phone FROM users WHERE email = ? LIMIT 1');
             $stmt->execute([SPECIAL_LIQUIDITY_USER_EMAIL]);
             $current = $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
@@ -51,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = '❌ Erro ao salvar dados: ' . $e->getMessage();
         }
     } else {
-        $message = '❌ Informe nome e senha.';
+        $message = '❌ Informe nome, telefone e senha.';
     }
 }
 
@@ -83,6 +84,9 @@ if ($current) {
     <form method="post">
         <label>Nome completo
             <input type="text" name="name" value="<?php echo htmlspecialchars($current['name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
+        </label>
+        <label>Telefone de contato
+            <input type="tel" name="phone" value="<?php echo htmlspecialchars($current['phone'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
         </label>
         <label>Senha de acesso
             <input type="password" name="password" placeholder="Defina ou atualize a senha" required>

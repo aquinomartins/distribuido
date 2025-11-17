@@ -1483,19 +1483,25 @@ function initAuth(){
     e.preventDefault();
     const name = document.getElementById('r_name').value;
     const email = document.getElementById('r_email').value;
+    const phone = document.getElementById('r_phone').value;
     const password = document.getElementById('r_password').value;
     const r = await fetch(API('register.php'), {
       method:'POST', credentials:'include',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name,email,password})
+      body: JSON.stringify({name,email,password,phone})
     });
     const msg = document.getElementById('authMsg');
     if (r.ok) {
       msg.textContent = 'Conta criada! Verifique seu e-mail para confirmar.';
       form.reset(); form.style.display='none';
+      msg.classList.remove('err');
     } else {
       const err = await r.json().catch(()=>({}));
-      msg.textContent = 'Erro ao registrar: ' + (err.detail || err.error || r.statusText);
+      if (err.error === 'phone_required' || err.error === 'phone_invalid') {
+        msg.textContent = 'Erro: informe um telefone válido com DDD.';
+      } else {
+        msg.textContent = 'Erro ao registrar: ' + (err.detail || err.error || r.statusText);
+      }
       msg.classList.add('err');
     }
   });
@@ -3748,6 +3754,564 @@ function viewCollections(){
   document.addEventListener('keydown', collectionsEscHandler);
 }
 
+/* ========= Leilões ========= */
+const AUCTION_STATUS_LABELS = {
+  draft: 'Agendado',
+  running: 'Leilão ativo',
+  ended: 'Encerrado',
+  settled: 'Liquidado'
+};
+
+let auctionHandlersBound = false;
+let auctionTickerState = { items: [], serverOffsetMs: 0 };
+let auctionTickerInterval = null;
+let auctionTickerContainer = null;
+
+function ensureAuctionHandlers(){
+  if (auctionHandlersBound) return;
+  const viewEl = document.getElementById('view');
+  if (!viewEl) return;
+  viewEl.addEventListener('submit', handleAuctionSubmit);
+  viewEl.addEventListener('click', handleAuctionClick);
+  auctionHandlersBound = true;
+}
+
+function stopAuctionTicker(){
+  if (auctionTickerInterval) {
+    clearInterval(auctionTickerInterval);
+    auctionTickerInterval = null;
+  }
+  auctionTickerContainer = null;
+  auctionTickerState = { items: [], serverOffsetMs: 0 };
+}
+
+function getServerSyncedNow(){
+  return Date.now() + (auctionTickerState.serverOffsetMs || 0);
+}
+
+function formatAuctionDuration(ms){
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (val) => String(val).padStart(2, '0');
+  if (hours > 0) {
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
+  return `${pad(minutes)}:${pad(seconds)}`;
+}
+
+function getAuctionCountdownState(auction, nowMs = getServerSyncedNow()){
+  const start = auction && auction.starts_at ? new Date(auction.starts_at).getTime() : null;
+  const end = auction && auction.ends_at ? new Date(auction.ends_at).getTime() : null;
+  if (!Number.isFinite(end)) {
+    return { text: 'Sem data', label: 'Em configuração', phase: 'unknown' };
+  }
+  if (auction.status === 'draft' && Number.isFinite(start) && nowMs < start) {
+    return {
+      text: formatAuctionDuration(start - nowMs),
+      label: 'Aguardando início',
+      phase: 'waiting'
+    };
+  }
+  const diff = end - nowMs;
+  if (diff <= 0 || auction.status === 'ended') {
+    return { text: '00:00', label: 'Dou-lhe três! Encerrado', phase: 'ended' };
+  }
+  const seconds = Math.floor(diff / 1000);
+  if (seconds <= 5) {
+    return { text: formatAuctionDuration(diff), label: 'Dou-lhe três!', phase: 'tres' };
+  }
+  if (seconds <= 15) {
+    return { text: formatAuctionDuration(diff), label: 'Dou-lhe duas', phase: 'duas' };
+  }
+  if (seconds <= 30) {
+    return { text: formatAuctionDuration(diff), label: 'Dou-lhe uma', phase: 'uma' };
+  }
+  return { text: formatAuctionDuration(diff), label: 'Em disputa', phase: 'running' };
+}
+
+function startAuctionTicker(container){
+  if (!container || !auctionTickerState.items.length) {
+    stopAuctionTicker();
+    return;
+  }
+  auctionTickerContainer = container;
+  updateAuctionCountdowns();
+  auctionTickerInterval = setInterval(updateAuctionCountdowns, 1000);
+}
+
+function updateAuctionCountdowns(){
+  if (!auctionTickerContainer) return;
+  const now = getServerSyncedNow();
+  auctionTickerState.items.forEach(auction => {
+    const state = getAuctionCountdownState(auction, now);
+    const timeEl = auctionTickerContainer.querySelector(`[data-countdown="${auction.id}"]`);
+    if (timeEl) timeEl.textContent = state.text;
+    const phaseEl = auctionTickerContainer.querySelector(`[data-phase="${auction.id}"]`);
+    if (phaseEl) {
+      phaseEl.textContent = state.label;
+      phaseEl.dataset.state = state.phase;
+    }
+  });
+}
+
+function buildAuctionCard(auction, nowMs){
+  const imageUrl = esc(auction.image_url || NFT_IMAGE_PLACEHOLDER);
+  const title = esc(auction.title || `NFT #${auction.id}`);
+  const desc = auction.description
+    ? `<p>${esc(truncateText(auction.description, 180))}</p>`
+    : '<p class="hint">Sem descrição.</p>';
+  const seller = esc(auction.seller_name || 'Admin');
+  const statusLabel = AUCTION_STATUS_LABELS[auction.status] || auction.status;
+  const countdown = getAuctionCountdownState(auction, nowMs);
+  const reserve = Number(auction.reserve_price || 0);
+  const reserveText = formatBRL(reserve);
+  const highest = Number(auction.highest_bid || 0);
+  const highestText = highest > 0 ? formatBRL(highest) : 'Sem lances';
+  const bidsCount = Number(auction.bids_count || 0);
+  const reserveReached = highest > 0 && highest >= reserve;
+  const nextBid = Number(auction.next_minimum_bid || 0);
+  const nextBidText = nextBid > 0 ? formatBRL(nextBid) : reserveText;
+  const running = auction.status === 'running';
+  const minValue = nextBid > 0 ? nextBid : 0.01;
+  const bidForm = running
+    ? `
+      <form class="auction-bid-form" data-role="bid-form" data-auction-id="${auction.id}">
+        <label>
+          Lance (R$)
+          <input type="number" name="amount" step="0.01" min="${minValue.toFixed(2)}" placeholder="Mínimo ${nextBidText}" required />
+        </label>
+        <button type="submit">Dar lance</button>
+        <p class="msg auction-msg" data-role="bid-msg"></p>
+      </form>
+    `
+    : '<p class="auction-closed">Lances indisponíveis para este leilão.</p>';
+
+  return `
+    <article class="auction-card" data-auction="${auction.id}">
+      <div class="auction-thumb"><img src="${imageUrl}" alt="${title}" loading="lazy" /></div>
+      <div class="auction-body">
+        <header class="auction-header">
+          <div>
+            <p>Lote #${auction.id}</p>
+            <h2>${title}</h2>
+          </div>
+          <span class="auction-status">${statusLabel}</span>
+        </header>
+        ${desc}
+        <div class="auction-timer">
+          <span class="auction-phase" data-phase="${auction.id}">${countdown.label}</span>
+          <strong data-countdown="${auction.id}">${countdown.text}</strong>
+        </div>
+        <dl class="auction-meta">
+          <div><dt>Lance atual</dt><dd>${highestText}</dd></div>
+          <div><dt>Próximo mínimo</dt><dd>${running ? nextBidText : '-'}</dd></div>
+          <div><dt>Lances</dt><dd>${bidsCount}</dd></div>
+        </dl>
+        <p class="auction-seller">Vendedor: ${seller}</p>
+        <p class="auction-reserve ${reserveReached ? 'ok' : ''}">${reserveReached ? 'Reserva atingida' : `Reserva: ${reserveText}`}</p>
+        ${bidForm}
+      </div>
+    </article>
+  `;
+}
+
+function renderAuctionsList(container, auctions){
+  if (!container) return;
+  if (!Array.isArray(auctions) || auctions.length === 0) {
+    container.innerHTML = '<p class="hint">Nenhum leilão disponível no momento.</p>';
+    stopAuctionTicker();
+    return;
+  }
+  const nowMs = getServerSyncedNow();
+  container.innerHTML = auctions.map(auction => buildAuctionCard(auction, nowMs)).join('');
+  startAuctionTicker(container);
+}
+
+async function loadAuctionsSection(view){
+  const list = view.querySelector('[data-role="auction-list"]');
+  if (!list) return;
+  list.innerHTML = '<p class="hint">Carregando leilões...</p>';
+  const data = await getJSON(API('auctions.php'));
+  if (data.__auth === false) {
+    needLogin();
+    return;
+  }
+  if (data.__forbidden) {
+    list.innerHTML = '<p class="hint err">Acesso restrito.</p>';
+    return;
+  }
+  const auctions = Array.isArray(data.auctions) ? data.auctions : (Array.isArray(data) ? data : []);
+  const serverTime = data.server_time ? Date.parse(data.server_time) : Date.now();
+  auctionTickerState = {
+    items: auctions,
+    serverOffsetMs: Number.isFinite(serverTime) ? serverTime - Date.now() : 0
+  };
+  renderAuctionsList(list, auctions);
+  if (currentSession.is_admin) {
+    updateAuctionAdminOverview(view);
+  }
+}
+
+async function submitBidForm(form){
+  const auctionId = parseInt(form.getAttribute('data-auction-id'), 10);
+  if (!Number.isFinite(auctionId)) return;
+  const amountInput = form.querySelector('input[name="amount"]');
+  const button = form.querySelector('button[type="submit"]');
+  const msg = form.querySelector('[data-role="bid-msg"]');
+  if (msg) {
+    msg.textContent = '';
+    msg.classList.remove('err');
+  }
+  if (!amountInput) return;
+  const amount = Number(amountInput.value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    if (msg) {
+      msg.textContent = 'Informe um valor válido.';
+      msg.classList.add('err');
+    }
+    return;
+  }
+  if (button) button.disabled = true;
+  try {
+    const res = await fetch(API('bid.php'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auction_id: auctionId, amount })
+    });
+    const payload = await res.json().catch(()=>({}));
+    if (res.ok && payload.ok) {
+      if (msg) {
+        msg.textContent = 'Lance registrado com sucesso!';
+        msg.classList.remove('err');
+      }
+      amountInput.value = '';
+      await loadAuctionsSection(document.getElementById('view'));
+    } else {
+      const code = payload.error || 'unknown_error';
+      let text = 'Não foi possível registrar o lance.';
+      if (code === 'phone_required') text = 'Cadastre um telefone válido para participar dos leilões.';
+      else if (code === 'amount_too_low') text = 'Lance abaixo do mínimo permitido para este lote.';
+      else if (code === 'auction_not_running' || code === 'auction_closed') text = 'Leilão não está mais ativo.';
+      else if (code === 'auction_not_found') text = 'Leilão não encontrado.';
+      else if (code === 'amount_invalid') text = 'Informe um valor de lance válido.';
+      if (msg) {
+        msg.textContent = text;
+        msg.classList.add('err');
+      }
+    }
+  } catch (err) {
+    if (msg) {
+      msg.textContent = 'Falha ao enviar o lance. Tente novamente.';
+      msg.classList.add('err');
+    }
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function handleAuctionSubmit(event){
+  const form = event.target.closest('[data-role="bid-form"]');
+  if (form) {
+    event.preventDefault();
+    await submitBidForm(form);
+    return;
+  }
+  const createForm = event.target.closest('[data-role="auction-create-form"]');
+  if (createForm) {
+    event.preventDefault();
+    await submitAuctionCreateForm(createForm);
+  }
+}
+
+async function handleAuctionClick(event){
+  const refreshBtn = event.target.closest('[data-role="auction-refresh"]');
+  if (refreshBtn) {
+    event.preventDefault();
+    refreshBtn.disabled = true;
+    await loadAuctionsSection(document.getElementById('view'));
+    refreshBtn.disabled = false;
+    return;
+  }
+  const finalizeBtn = event.target.closest('[data-action="finalize-auction"]');
+  if (finalizeBtn) {
+    event.preventDefault();
+    const auctionId = parseInt(finalizeBtn.getAttribute('data-auction-id'), 10);
+    if (Number.isFinite(auctionId) && window.confirm('Encerrar este leilão agora?')) {
+      finalizeBtn.disabled = true;
+      await performAuctionAdminAction('finalize', auctionId);
+      finalizeBtn.disabled = false;
+    }
+    return;
+  }
+  const startBtn = event.target.closest('[data-action="start-auction"]');
+  if (startBtn) {
+    event.preventDefault();
+    const auctionId = parseInt(startBtn.getAttribute('data-auction-id'), 10);
+    if (Number.isFinite(auctionId) && window.confirm('Iniciar o leilão agora?')) {
+      startBtn.disabled = true;
+      await performAuctionAdminAction('start', auctionId);
+      startBtn.disabled = false;
+    }
+  }
+}
+
+async function performAuctionAdminAction(action, auctionId){
+  const msg = document.querySelector('[data-role="auction-admin-msg"]');
+  if (msg) {
+    msg.textContent = '';
+    msg.classList.remove('err');
+  }
+  try {
+    const res = await fetch(API('auctions.php'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, auction_id: auctionId })
+    });
+    const payload = await res.json().catch(()=>({}));
+    if (!res.ok || payload.error) {
+      if (msg) {
+        msg.textContent = 'Não foi possível atualizar o leilão.';
+        msg.classList.add('err');
+      }
+      return;
+    }
+    if (msg) {
+      msg.textContent = action === 'finalize' ? 'Leilão encerrado.' : 'Leilão iniciado.';
+      msg.classList.remove('err');
+    }
+    await loadAuctionsSection(document.getElementById('view'));
+  } catch (err) {
+    if (msg) {
+      msg.textContent = 'Falha ao comunicar com o servidor.';
+      msg.classList.add('err');
+    }
+  }
+}
+
+function formatLocalDateTimeValue(date){
+  const pad = (val) => String(val).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fillAuctionScheduleDefaults(form){
+  if (!form) return;
+  const startInput = form.querySelector('[name="starts_at"]');
+  const endInput = form.querySelector('[name="ends_at"]');
+  const now = new Date();
+  const start = new Date(now.getTime() + 5 * 60 * 1000);
+  const end = new Date(now.getTime() + 35 * 60 * 1000);
+  if (startInput) startInput.value = formatLocalDateTimeValue(start);
+  if (endInput) endInput.value = formatLocalDateTimeValue(end);
+}
+
+async function loadAuctionAdminPanel(view){
+  const panel = view.querySelector('[data-role="auction-admin-panel"]');
+  if (!panel) return;
+  panel.innerHTML = '<div class="card"><p class="hint">Carregando painel administrativo...</p></div>';
+  const [usersData, mintedData] = await Promise.all([
+    getJSON(API('admin_users.php')),
+    getJSON(API('admin_minted_nfts.php'))
+  ]);
+  if (usersData.__auth === false || mintedData.__auth === false) {
+    needLogin();
+    return;
+  }
+  if (usersData.__forbidden || mintedData.__forbidden) {
+    panel.innerHTML = '<p class="hint err">Apenas administradores podem configurar os leilões.</p>';
+    return;
+  }
+  const users = (Array.isArray(usersData) ? usersData : []).filter(u => Number(u.confirmed) === 1);
+  const minted = Array.isArray(mintedData) ? mintedData : [];
+  const disableForm = users.length === 0 || minted.length === 0;
+  const userOptions = users.length
+    ? users.map(user => {
+        const label = esc(user.name || user.email || `Usuário #${user.id}`);
+        return `<option value="${user.id}">${label}</option>`;
+      }).join('')
+    : '<option value="" disabled>Nenhum usuário confirmado</option>';
+  const nftOptions = minted.length
+    ? minted.map(item => {
+        const label = esc(item.title || `NFT #${item.instance_id}`);
+        const owner = esc(item.owner_name || item.owner_email || 'Sem proprietário');
+        return `<option value="${item.instance_id}">${label} • ${owner}</option>`;
+      }).join('')
+    : '<option value="" disabled>Nenhuma NFT disponível</option>';
+
+  panel.innerHTML = `
+    <section class="auction-admin card">
+      <h2>Painel administrativo</h2>
+      <p class="hint">Cadastre a NFT, defina a janela de lances e acompanhe os lotes ativos.</p>
+      <form class="auction-create-form" data-role="auction-create-form">
+        <label>NFT disponível
+          <select name="asset_instance_id" ${disableForm ? 'disabled' : ''} required>
+            ${nftOptions}
+          </select>
+        </label>
+        <label>Vendedor
+          <select name="seller_id" ${disableForm ? 'disabled' : ''} required>
+            ${userOptions}
+          </select>
+        </label>
+        <label>Início do leilão
+          <input type="datetime-local" name="starts_at" ${disableForm ? 'disabled' : ''} required />
+        </label>
+        <label>Encerramento
+          <input type="datetime-local" name="ends_at" ${disableForm ? 'disabled' : ''} required />
+        </label>
+        <label>Reserva (R$)
+          <input type="number" step="0.01" min="0" name="reserve_price" ${disableForm ? 'disabled' : ''} value="0" />
+        </label>
+        <button type="submit" ${disableForm ? 'disabled' : ''}>Criar leilão</button>
+        ${disableForm ? '<p class="hint err">Cadastre usuários confirmados e NFTs para habilitar o formulário.</p>' : ''}
+        <p class="msg" data-role="auction-admin-msg"></p>
+      </form>
+      <div class="auction-admin-overview" data-role="auction-admin-overview"></div>
+    </section>
+  `;
+  fillAuctionScheduleDefaults(panel.querySelector('[data-role="auction-create-form"]'));
+  updateAuctionAdminOverview(view);
+}
+
+function updateAuctionAdminOverview(view){
+  const container = view.querySelector('[data-role="auction-admin-overview"]');
+  if (!container) return;
+  const auctions = Array.isArray(auctionTickerState.items) ? auctionTickerState.items : [];
+  if (auctions.length === 0) {
+    container.innerHTML = '<p class="hint">Nenhum leilão configurado até o momento.</p>';
+    return;
+  }
+  const rows = buildAuctionAdminTableRows(auctions);
+  container.innerHTML = `
+    <div class="auction-admin-table-wrapper">
+      <h3>Leilões cadastrados</h3>
+      <table class="tbl auction-admin-table">
+        <thead>
+          <tr><th>Lote</th><th>Status</th><th>Início</th><th>Término</th><th>Lance atual</th><th>Ações</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function buildAuctionAdminTableRows(auctions){
+  return auctions.map(auction => {
+    const statusLabel = AUCTION_STATUS_LABELS[auction.status] || auction.status;
+    const startText = auction.starts_at ? formatDateTime(auction.starts_at) : '-';
+    const endText = auction.ends_at ? formatDateTime(auction.ends_at) : '-';
+    const bidText = Number(auction.highest_bid || 0) > 0 ? formatBRL(auction.highest_bid) : 'Sem lances';
+    let actions = '<span class="hint">Sem ações</span>';
+    if (auction.status === 'draft') {
+      actions = `<button type="button" data-action="start-auction" data-auction-id="${auction.id}">Iniciar</button>`;
+    } else if (auction.status === 'running') {
+      actions = `<button type="button" data-action="finalize-auction" data-auction-id="${auction.id}">Encerrar</button>`;
+    }
+    const title = esc(auction.title || `NFT #${auction.id}`);
+    return `<tr>
+      <td>${title}</td>
+      <td>${statusLabel}</td>
+      <td>${startText}</td>
+      <td>${endText}</td>
+      <td>${bidText}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function submitAuctionCreateForm(form){
+  const msg = form.querySelector('[data-role="auction-admin-msg"]');
+  if (msg) {
+    msg.textContent = '';
+    msg.classList.remove('err');
+  }
+  const nftField = form.elements.namedItem('asset_instance_id');
+  const sellerField = form.elements.namedItem('seller_id');
+  const startField = form.elements.namedItem('starts_at');
+  const endField = form.elements.namedItem('ends_at');
+  const reserveField = form.elements.namedItem('reserve_price');
+  const payload = {
+    action: 'create',
+    asset_instance_id: nftField ? parseInt(nftField.value, 10) : null,
+    seller_id: sellerField ? parseInt(sellerField.value, 10) : null,
+    starts_at: startField && startField.value ? new Date(startField.value).toISOString() : null,
+    ends_at: endField && endField.value ? new Date(endField.value).toISOString() : null,
+    reserve_price: reserveField && reserveField.value ? Number(reserveField.value) : 0
+  };
+  if (!payload.asset_instance_id || !payload.seller_id || !payload.starts_at || !payload.ends_at) {
+    if (msg) {
+      msg.textContent = 'Preencha todos os campos para criar o leilão.';
+      msg.classList.add('err');
+    }
+    return;
+  }
+  try {
+    const res = await fetch(API('auctions.php'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || data.error) {
+      if (msg) {
+        msg.textContent = 'Não foi possível criar o leilão.';
+        msg.classList.add('err');
+      }
+      return;
+    }
+    if (msg) {
+      msg.textContent = 'Leilão criado com sucesso!';
+      msg.classList.remove('err');
+    }
+    form.reset();
+    fillAuctionScheduleDefaults(form);
+    await loadAuctionsSection(document.getElementById('view'));
+  } catch (err) {
+    if (msg) {
+      msg.textContent = 'Erro inesperado ao criar o leilão.';
+      msg.classList.add('err');
+    }
+  }
+}
+
+async function viewAuctions(){
+  const view = document.getElementById('view');
+  if (!view) return;
+  stopAuctionTicker();
+  ensureAuctionHandlers();
+  view.className = 'auctions-view';
+  const adminPanel = currentSession.is_admin
+    ? '<section class="auction-admin-wrapper" data-role="auction-admin-panel"><div class="card"><p class="hint">Carregando painel administrativo...</p></div></section>'
+    : '<p class="hint auctions-admin-note">Toda a configuração é realizada pelos administradores. Usuários com telefone cadastrado podem dar lances.</p>';
+  view.innerHTML = `
+    <section class="auctions-shell">
+      <header class="auctions-hero">
+        <div>
+          <p>Experiência em tempo real</p>
+          <h1>Leilões de NFT</h1>
+          <span>Dispute ativos digitais com a contagem clássica "dou-lhe uma, dou-lhe duas, dou-lhe três".</span>
+        </div>
+        <div class="auction-hero-actions">
+          <button type="button" class="ghost" data-role="auction-refresh">Atualizar leilões</button>
+        </div>
+      </header>
+      <p class="hint auctions-instructions">Somente usuários registrados com telefone confirmado podem dar lances.</p>
+      <div class="auction-list" data-role="auction-list">
+        <p class="hint">Carregando leilões...</p>
+      </div>
+      ${adminPanel}
+    </section>
+  `;
+  await loadAuctionsSection(view);
+  if (currentSession.is_admin) {
+    await loadAuctionAdminPanel(view);
+  }
+}
+
 /* ========= Menu ========= */
 const VIEW_HANDLERS = {
   home: viewHome,
@@ -3762,6 +4326,7 @@ const VIEW_HANDLERS = {
   pending_transactions: viewPendingTransactions,
   liquidity_game: viewLiquidityGame,
   collections: viewCollections,
+  auctions: viewAuctions,
   events: viewEvents,
   admin: viewAdmin,
   admin_mint: viewAdminMint,
@@ -3797,6 +4362,7 @@ function updateViewQueryParam(viewName){
 
 function navigateToView(viewName, options = {}){
   if (!viewName) return false;
+  stopAuctionTicker();
   const handler = VIEW_HANDLERS[viewName];
   if (typeof handler !== 'function') return false;
   handler();

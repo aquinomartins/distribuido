@@ -13,6 +13,22 @@ $body = json_decode(file_get_contents('php://input'), true);
 $name = trim($body['name'] ?? '');
 $email = trim($body['email'] ?? '');
 $password = $body['password'] ?? '';
+$phone = trim($body['phone'] ?? '');
+
+if ($phone === '') {
+  http_response_code(400);
+  echo json_encode(['error' => 'phone_required']);
+  exit;
+}
+
+$digits = preg_replace('/\D+/', '', $phone);
+if (strlen($digits) < 10) {
+  http_response_code(400);
+  echo json_encode(['error' => 'phone_invalid']);
+  exit;
+}
+
+$sanitizedPhone = preg_replace('/[^0-9+()\-\s]/', '', $phone);
 
 if (!$name || !$email || !$password) {
   http_response_code(400);
@@ -22,7 +38,7 @@ if (!$name || !$email || !$password) {
 
 try {
   $pdo = db();
-  $uid = create_user_with_accounts($name, $email, $password);
+  $uid = create_user_with_accounts($name, $email, $password, $sanitizedPhone);
 
   $token = md5(uniqid(rand(), true));
   $pdo->prepare("INSERT INTO user_confirmations (user_id, token) VALUES (?, ?)")->execute([$uid, $token]);
