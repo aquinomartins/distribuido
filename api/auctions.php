@@ -3,7 +3,6 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/auctions.php';
 
-require_login();
 header('Content-Type: application/json');
 $pdo = db();
 auctions_sync_statuses($pdo);
@@ -14,6 +13,7 @@ if ($method === 'GET') {
   exit;
 }
 if ($method === 'POST') {
+  require_login();
   handle_auctions_admin($pdo);
   exit;
 }
