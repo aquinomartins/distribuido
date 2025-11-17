@@ -3917,15 +3917,74 @@ function buildAuctionCard(auction, nowMs){
   `;
 }
 
+function buildAuctionSpotlight(auction, nowMs){
+  const countdown = getAuctionCountdownState(auction, nowMs);
+  const title = esc(auction.title || `Lote #${auction.id}`);
+  const description = auction.description
+    ? esc(truncateText(auction.description, 260))
+    : 'Leilão aberto e independente do restante do app.';
+  const imageUrl = esc(auction.image_url || NFT_IMAGE_PLACEHOLDER);
+  const highest = Number(auction.highest_bid || 0);
+  const highestText = highest > 0 ? formatBRL(highest) : 'Nenhum lance';
+  const reserve = Number(auction.reserve_price || 0);
+  const nextBid = Number(auction.next_minimum_bid || 0);
+  const nextBidText = nextBid > 0 ? formatBRL(nextBid) : formatBRL(Math.max(reserve, 0));
+  const bidsCount = Number(auction.bids_count || 0);
+  const statusBadge = auction.status === 'running' ? 'Aberto agora' : 'Agendado';
+  const statusClass = auction.status === 'running' ? 'ok' : '';
+  const seller = esc(auction.seller_name || auction.seller_email || 'Equipe da plataforma');
+  const audienceText = auction.status === 'running'
+    ? 'Todos os usuários confirmados podem dar um lance agora mesmo.'
+    : 'Prepare seus lances: o leilão abrirá em instantes.';
+  return `
+    <article class="auction-spotlight-card">
+      <div class="spotlight-media"><img src="${imageUrl}" alt="${title}" loading="lazy" /></div>
+      <div class="spotlight-body">
+        <header>
+          <span class="spotlight-pill ${statusClass}">${statusBadge}</span>
+          <p>Responsável: <strong>${seller}</strong></p>
+        </header>
+        <h2>${title}</h2>
+        <p>${description}</p>
+        <div class="spotlight-countdown">
+          <span>${countdown.label}</span>
+          <strong>${countdown.text}</strong>
+        </div>
+        <dl class="spotlight-meta">
+          <div><dt>Lance atual</dt><dd>${highestText}</dd></div>
+          <div><dt>Próximo mínimo</dt><dd>${auction.status === 'running' ? nextBidText : '-'}</dd></div>
+          <div><dt>Total de lances</dt><dd>${bidsCount}</dd></div>
+        </dl>
+        <p class="spotlight-cta">${audienceText}</p>
+      </div>
+    </article>
+  `;
+}
+
+function renderAuctionSpotlight(root, auctions, nowMs){
+  const spotlight = root ? root.querySelector('[data-role="auction-spotlight"]') : null;
+  if (!spotlight) return;
+  if (!Array.isArray(auctions) || auctions.length === 0) {
+    spotlight.innerHTML = '<p class="hint">Nenhum leilão disponível para destaque.</p>';
+    return;
+  }
+  const running = auctions.find(item => item.status === 'running');
+  const featured = running || auctions[0];
+  spotlight.innerHTML = buildAuctionSpotlight(featured, nowMs);
+}
+
 function renderAuctionsList(container, auctions){
   if (!container) return;
+  const root = container.closest('.auctions-shell') || document;
   if (!Array.isArray(auctions) || auctions.length === 0) {
     container.innerHTML = '<p class="hint">Nenhum leilão disponível no momento.</p>';
+    renderAuctionSpotlight(root, [], Date.now());
     stopAuctionTicker();
     return;
   }
   const nowMs = getServerSyncedNow();
   container.innerHTML = auctions.map(auction => buildAuctionCard(auction, nowMs)).join('');
+  renderAuctionSpotlight(root, auctions, nowMs);
   startAuctionTicker(container);
 }
 
@@ -4131,46 +4190,39 @@ async function loadAuctionAdminPanel(view){
   const panel = view.querySelector('[data-role="auction-admin-panel"]');
   if (!panel) return;
   panel.innerHTML = '<div class="card"><p class="hint">Carregando painel administrativo...</p></div>';
-  const [usersData, mintedData] = await Promise.all([
-    getJSON(API('admin_users.php')),
-    getJSON(API('admin_minted_nfts.php'))
-  ]);
-  if (usersData.__auth === false || mintedData.__auth === false) {
+  const usersData = await getJSON(API('admin_users.php'));
+  if (usersData.__auth === false) {
     needLogin();
     return;
   }
-  if (usersData.__forbidden || mintedData.__forbidden) {
+  if (usersData.__forbidden) {
     panel.innerHTML = '<p class="hint err">Apenas administradores podem configurar os leilões.</p>';
     return;
   }
   const users = (Array.isArray(usersData) ? usersData : []).filter(u => Number(u.confirmed) === 1);
-  const minted = Array.isArray(mintedData) ? mintedData : [];
-  const disableForm = users.length === 0 || minted.length === 0;
+  const disableForm = users.length === 0;
   const userOptions = users.length
     ? users.map(user => {
         const label = esc(user.name || user.email || `Usuário #${user.id}`);
         return `<option value="${user.id}">${label}</option>`;
       }).join('')
     : '<option value="" disabled>Nenhum usuário confirmado</option>';
-  const nftOptions = minted.length
-    ? minted.map(item => {
-        const label = esc(item.title || `NFT #${item.instance_id}`);
-        const owner = esc(item.owner_name || item.owner_email || 'Sem proprietário');
-        return `<option value="${item.instance_id}">${label} • ${owner}</option>`;
-      }).join('')
-    : '<option value="" disabled>Nenhuma NFT disponível</option>';
 
   panel.innerHTML = `
     <section class="auction-admin card">
       <h2>Painel administrativo</h2>
-      <p class="hint">Cadastre a NFT, defina a janela de lances e acompanhe os lotes ativos.</p>
+      <p class="hint">Defina o lote principal do leilão independente e acompanhe os lances em tempo real.</p>
       <form class="auction-create-form" data-role="auction-create-form">
-        <label>NFT disponível
-          <select name="asset_instance_id" ${disableForm ? 'disabled' : ''} required>
-            ${nftOptions}
-          </select>
+        <label>Título do leilão
+          <input type="text" name="title" maxlength="160" placeholder="Ex.: Lote único da semana" ${disableForm ? 'disabled' : ''} required />
         </label>
-        <label>Vendedor
+        <label>Descrição
+          <textarea name="description" rows="3" maxlength="600" placeholder="Resumo para o destaque" ${disableForm ? 'disabled' : ''}></textarea>
+        </label>
+        <label>Imagem destacada (URL)
+          <input type="url" name="image_url" placeholder="https://..." ${disableForm ? 'disabled' : ''} />
+        </label>
+        <label>Vendedor responsável
           <select name="seller_id" ${disableForm ? 'disabled' : ''} required>
             ${userOptions}
           </select>
@@ -4185,7 +4237,7 @@ async function loadAuctionAdminPanel(view){
           <input type="number" step="0.01" min="0" name="reserve_price" ${disableForm ? 'disabled' : ''} value="0" />
         </label>
         <button type="submit" ${disableForm ? 'disabled' : ''}>Criar leilão</button>
-        ${disableForm ? '<p class="hint err">Cadastre usuários confirmados e NFTs para habilitar o formulário.</p>' : ''}
+        ${disableForm ? '<p class="hint err">Cadastre pelo menos um usuário confirmado para habilitar o formulário.</p>' : '<p class="hint">Esse leilão é independente dos ativos cadastrados em outras abas.</p>'}
         <p class="msg" data-role="auction-admin-msg"></p>
       </form>
       <div class="auction-admin-overview" data-role="auction-admin-overview"></div>
@@ -4247,26 +4299,34 @@ async function submitAuctionCreateForm(form){
     msg.textContent = '';
     msg.classList.remove('err');
   }
-  const nftField = form.elements.namedItem('asset_instance_id');
+  const titleField = form.elements.namedItem('title');
+  const descriptionField = form.elements.namedItem('description');
+  const imageField = form.elements.namedItem('image_url');
   const sellerField = form.elements.namedItem('seller_id');
   const startField = form.elements.namedItem('starts_at');
   const endField = form.elements.namedItem('ends_at');
   const reserveField = form.elements.namedItem('reserve_price');
+  const title = titleField && titleField.value ? titleField.value.trim() : '';
+  const description = descriptionField && descriptionField.value ? descriptionField.value.trim() : '';
+  const imageUrl = imageField && imageField.value ? imageField.value.trim() : '';
   const payload = {
     action: 'create',
-    asset_instance_id: nftField ? parseInt(nftField.value, 10) : null,
+    title,
+    description,
+    image_url: imageUrl,
     seller_id: sellerField ? parseInt(sellerField.value, 10) : null,
     starts_at: startField && startField.value ? new Date(startField.value).toISOString() : null,
     ends_at: endField && endField.value ? new Date(endField.value).toISOString() : null,
     reserve_price: reserveField && reserveField.value ? Number(reserveField.value) : 0
   };
-  if (!payload.asset_instance_id || !payload.seller_id || !payload.starts_at || !payload.ends_at) {
+  if (!payload.title || !payload.seller_id || !payload.starts_at || !payload.ends_at) {
     if (msg) {
       msg.textContent = 'Preencha todos os campos para criar o leilão.';
       msg.classList.add('err');
     }
     return;
   }
+  if (payload.image_url === '') delete payload.image_url;
   try {
     const res = await fetch(API('auctions.php'), {
       method: 'POST',
@@ -4311,15 +4371,18 @@ async function viewAuctions(){
       <header class="auctions-hero">
         <div>
           <p>Experiência em tempo real</p>
-          <h1>Leilões de NFT</h1>
-          <span>Dispute ativos digitais com a contagem clássica "dou-lhe uma, dou-lhe duas, dou-lhe três".</span>
+          <h1>Leilões independentes</h1>
+          <span>Um único palco para toda a comunidade disputar ativos digitais, sem depender das demais abas do app.</span>
         </div>
         <div class="auction-hero-actions">
           <button type="button" class="ghost" data-role="auction-refresh">Atualizar leilões</button>
         </div>
       </header>
-      <p class="hint auctions-instructions">Somente usuários registrados podem dar lances.</p>
-      <div class="auction-list" data-role="auction-list">
+      <p class="hint auctions-instructions">Leilões abertos para todos os usuários confirmados. Basta escolher o lote ativo e registrar seu lance.</p>
+      <section class="auction-spotlight" data-role="auction-spotlight">
+        <p class="hint">Selecione um leilão ativo para destacá-lo aqui.</p>
+      </section>
+      <div class="auction-list" data-role="auction-list" id="auction-cards">
         <p class="hint">Carregando leilões...</p>
       </div>
       ${adminPanel}

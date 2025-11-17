@@ -380,6 +380,20 @@ small.hint { color:#6b7280; }
 .auctions-hero span { color:#94a3b8; display:block; margin-top:6px; }
 .auction-hero-actions button { width:auto; }
 .auctions-instructions, .auctions-admin-note { margin:0; color:#94a3b8; }
+.auction-spotlight { background:#020617; border:1px solid rgba(148,163,184,0.25); border-radius:22px; padding:20px; box-shadow:0 26px 50px rgba(2,6,23,0.65); }
+.auction-spotlight-card { display:flex; flex-wrap:wrap; gap:20px; align-items:stretch; }
+.spotlight-media img { width:220px; height:220px; border-radius:18px; object-fit:cover; border:1px solid rgba(148,163,184,0.3); box-shadow:0 16px 30px rgba(15,23,42,0.45); }
+.spotlight-body { flex:1; min-width:240px; display:flex; flex-direction:column; gap:12px; color:#f8fafc; }
+.spotlight-body h2 { margin:0; font-size:1.8rem; }
+.spotlight-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:999px; text-transform:uppercase; letter-spacing:0.08em; font-size:0.75rem; background:#1f2937; color:#f8fafc; }
+.spotlight-pill.ok { background:#22d3ee; color:#042f2e; }
+.spotlight-countdown { display:flex; justify-content:space-between; align-items:center; gap:12px; background:#0b1120; border-radius:16px; padding:12px 16px; font-size:1.2rem; }
+.spotlight-countdown span { font-size:0.85rem; text-transform:uppercase; color:#94a3b8; }
+.spotlight-meta { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin:0; }
+.spotlight-meta div { background:rgba(15,23,42,0.6); border-radius:14px; padding:10px; }
+.spotlight-meta dt { margin:0; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; }
+.spotlight-meta dd { margin:4px 0 0; font-size:1.1rem; font-weight:600; }
+.spotlight-cta { margin:0; color:#f0abfc; font-weight:500; }
 .auction-list { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:18px; }
 .auction-card { display:flex; gap:18px; background:#0b1120; border:1px solid rgba(148,163,184,0.25); border-radius:18px; padding:18px; color:#f8fafc; box-shadow:0 20px 45px rgba(15,23,42,0.55); }
 .auction-thumb img { width:140px; height:140px; object-fit:cover; border-radius:14px; border:1px solid rgba(255,255,255,0.08); }
@@ -411,7 +425,8 @@ small.hint { color:#6b7280; }
 .auction-admin.card { background:#0f172a; color:#f8fafc; border-radius:20px; padding:20px; border:1px solid rgba(148,163,184,0.25); box-shadow:0 22px 40px rgba(15,23,42,0.5); }
 .auction-create-form { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:12px; }
 .auction-create-form label { display:flex; flex-direction:column; gap:6px; font-size:0.9rem; color:#f8fafc; }
-.auction-create-form select, .auction-create-form input { width:100%; margin:0; background:#0b1120; color:#f8fafc; border:1px solid rgba(148,163,184,0.35); border-radius:10px; padding:8px; }
+.auction-create-form select, .auction-create-form input, .auction-create-form textarea { width:100%; margin:0; background:#0b1120; color:#f8fafc; border:1px solid rgba(148,163,184,0.35); border-radius:10px; padding:8px; }
+.auction-create-form textarea { resize:vertical; min-height:100px; }
 .auction-create-form button { width:auto; }
 .auction-admin-table-wrapper { margin-top:20px; overflow-x:auto; }
 .auction-admin-table button { width:auto; padding:6px 12px; }
