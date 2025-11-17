@@ -3981,7 +3981,12 @@ async function submitBidForm(form){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ auction_id: auctionId, amount })
     });
-    const payload = await res.json().catch(()=>({}));
+    const rawPayload = await res.json().catch(()=>({}));
+    const payload = (rawPayload && typeof rawPayload === 'object') ? rawPayload : {};
+    if (res.status === 401 || payload.__auth === false || payload.error === 'not_authenticated') {
+      needLogin();
+      return;
+    }
     if (res.ok && payload.ok) {
       if (msg) {
         msg.textContent = 'Lance registrado com sucesso!';
@@ -3990,7 +3995,7 @@ async function submitBidForm(form){
       amountInput.value = '';
       await loadAuctionsSection(document.getElementById('view'));
     } else {
-      const code = payload.error || 'unknown_error';
+      const code = typeof payload.error === 'string' ? payload.error : 'unknown_error';
       let text = 'Não foi possível registrar o lance.';
       if (code === 'amount_too_low') text = 'Lance abaixo do mínimo permitido para este lote.';
       else if (code === 'auction_not_running' || code === 'auction_closed') text = 'Leilão não está mais ativo.';
@@ -3998,6 +4003,11 @@ async function submitBidForm(form){
       else if (code === 'auction_not_started') text = 'Leilão ainda não começou.';
       else if (code === 'amount_invalid') text = 'Informe um valor de lance válido.';
       else if (code === 'missing_accounts') text = 'Sua conta não possui as carteiras necessárias para dar lances.';
+      else if (code === 'cannot_register_bid' && typeof payload.detail === 'string' && payload.detail.trim() !== '') {
+        text = `Falha ao registrar o lance: ${payload.detail}`;
+      } else if (!res.ok && payload.detail) {
+        text = String(payload.detail);
+      }
       if (msg) {
         msg.textContent = text;
         msg.classList.add('err');
@@ -4072,10 +4082,18 @@ async function performAuctionAdminAction(action, auctionId){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, auction_id: auctionId })
     });
-    const payload = await res.json().catch(()=>({}));
+    const rawPayload = await res.json().catch(()=>({}));
+    const payload = (rawPayload && typeof rawPayload === 'object') ? rawPayload : {};
+    if (res.status === 401 || payload.__auth === false || payload.error === 'not_authenticated') {
+      needLogin();
+      return;
+    }
     if (!res.ok || payload.error) {
       if (msg) {
-        msg.textContent = 'Não foi possível atualizar o leilão.';
+        const errText = typeof payload.error === 'string'
+          ? `Não foi possível atualizar o leilão (${payload.error}).`
+          : 'Não foi possível atualizar o leilão.';
+        msg.textContent = payload.detail ? `${errText} ${payload.detail}` : errText;
         msg.classList.add('err');
       }
       return;
