@@ -47,7 +47,7 @@ CREATE TABLE accounts (
 CREATE TABLE journals (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  ref_type ENUM('deposit','withdraw','trade','prize','lease','mint','buy','sell','fee') NOT NULL,
+  ref_type ENUM('deposit','withdraw','trade','prize','lease','mint','buy','sell','fee','market_purchase','bid') NOT NULL,
   ref_id BIGINT NULL,
   memo VARCHAR(255)
 );

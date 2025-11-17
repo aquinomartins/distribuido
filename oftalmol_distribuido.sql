@@ -275,7 +275,7 @@ CREATE TABLE `gallery_spaces` (
 CREATE TABLE `journals` (
   `id` bigint NOT NULL,
   `occurred_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `ref_type` enum('deposit','withdraw','trade','prize','lease','mint','buy','sell','fee') NOT NULL,
+  `ref_type` enum('deposit','withdraw','trade','prize','lease','mint','buy','sell','fee','market_purchase','bid') NOT NULL,
   `ref_id` bigint DEFAULT NULL,
   `memo` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
