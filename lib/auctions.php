@@ -1,39 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
 
-function auctions_ensure_profiles_table(PDO $pdo): void {
-  static $ensured = false;
-  if ($ensured) {
-    return;
-  }
-  $sql = "CREATE TABLE IF NOT EXISTS auction_profiles (
-    auction_id BIGINT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT NULL,
-    image_url VARCHAR(500) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (auction_id) REFERENCES auctions(id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-  $pdo->exec($sql);
-  $ensured = true;
-}
-
-function auctions_save_profile(PDO $pdo, int $auctionId, string $title, ?string $description, ?string $imageUrl): void {
-  auctions_ensure_profiles_table($pdo);
-  $stmt = $pdo->prepare(
-    "INSERT INTO auction_profiles (auction_id, title, description, image_url)
-     VALUES (?,?,?,?)
-     ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), image_url = VALUES(image_url)"
-  );
-  $stmt->execute([
-    $auctionId,
-    $title,
-    $description !== '' ? $description : null,
-    $imageUrl !== '' ? $imageUrl : null
-  ]);
-}
-
 function auctions_timezone(): DateTimeZone {
   static $tz = null;
   if ($tz === null) {
