@@ -13,10 +13,12 @@ function auctions_min_increment() {
 function auctions_next_minimum_bid($reservePrice, $currentBid) {
   $reserve = max(0, (float)$reservePrice);
   $current = max(0, (float)$currentBid);
-  $base = max($reserve, $current);
   $increment = auctions_min_increment();
-  if ($base <= 0) {
-    return round($increment, 2);
+
+  if ($current > 0) {
+    return round($current + $increment, 2);
   }
-  return round($base + $increment, 2);
+
+  $minimum = max($reserve, $increment);
+  return round($minimum, 2);
 }
