@@ -6,6 +6,14 @@ require_once __DIR__ . '/db.php';
  * $legs = [['account_id'=>1,'debit'=>100], ['account_id'=>2,'credit'=>100]]
  * retorna journal_id
  */
+function ledger_amounts_match($a, $b, $precision = 8) {
+  if (function_exists('bccomp')) {
+    return bccomp((string)$a, (string)$b, $precision) === 0;
+  }
+  $scale = pow(10, $precision);
+  return abs(round((float)$a * $scale) - round((float)$b * $scale)) === 0;
+}
+
 function post_journal($ref_type, $ref_id, $memo, $legs) {
   $pdo = db();
   $startedTx = !$pdo->inTransaction();
@@ -24,7 +32,9 @@ function post_journal($ref_type, $ref_id, $memo, $legs) {
       $sumD += $d; $sumC += $c;
       $stmtE->execute([$jid, $l['account_id'], $d, $c]);
     }
-    if (bccomp($sumD, $sumC, 8) !== 0) throw new Exception("Unbalanced entry");
+    if (!ledger_amounts_match($sumD, $sumC, 8)) {
+      throw new Exception("Unbalanced entry");
+    }
 
     if ($startedTx) {
       $pdo->commit();
