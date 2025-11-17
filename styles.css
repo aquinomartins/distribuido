@@ -406,6 +406,12 @@ small.hint { color:#6b7280; }
 .auction-bid-form { display:flex; flex-direction:column; gap:10px; }
 .auction-bid-form input { background:#0f172a; color:#f8fafc; border:1px solid rgba(148,163,184,0.35); border-radius:10px; }
 .auction-bid-form button { width:auto; align-self:flex-start; }
+.auction-phone-capture { margin-top:5px; }
+.inline-phone-form { border:1px dashed rgba(148,163,184,0.4); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; background:rgba(15,23,42,0.6); }
+.inline-phone-form label { display:flex; flex-direction:column; gap:4px; font-size:0.9rem; }
+.inline-phone-form input { background:#020617; border-radius:8px; border:1px solid rgba(148,163,184,0.5); color:#f8fafc; padding:8px; }
+.inline-phone-actions { display:flex; gap:8px; align-items:center; }
+.inline-phone-form .msg { margin:0; }
 .auction-closed { margin:0; color:#cbd5f5; }
 .auction-admin-wrapper { margin-top:8px; }
 .auction-admin.card { background:#0f172a; color:#f8fafc; border-radius:20px; padding:20px; border:1px solid rgba(148,163,184,0.25); box-shadow:0 22px 40px rgba(15,23,42,0.5); }
