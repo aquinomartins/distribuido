@@ -65,9 +65,9 @@ try {
     throw new RuntimeException('auction_not_running');
   }
 
-  $startsAt = $auction['starts_at'] ? new DateTimeImmutable($auction['starts_at']) : null;
-  $endsAt = $auction['ends_at'] ? new DateTimeImmutable($auction['ends_at']) : null;
-  $now = new DateTimeImmutable('now');
+  $startsAt = auctions_parse_datetime($auction['starts_at'] ?? null);
+  $endsAt = auctions_parse_datetime($auction['ends_at'] ?? null);
+  $now = auctions_now();
   if ($startsAt && $startsAt > $now) {
     throw new RuntimeException('auction_not_started');
   }
