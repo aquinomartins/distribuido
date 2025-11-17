@@ -31,15 +31,6 @@ $pdo = db();
 auctions_sync_statuses($pdo);
 $uid = current_user_id();
 
-$userPhoneStmt = $pdo->prepare("SELECT phone FROM users WHERE id = ? LIMIT 1");
-$userPhoneStmt->execute([$uid]);
-$phone = trim((string)$userPhoneStmt->fetchColumn());
-if ($phone === '') {
-  http_response_code(400);
-  echo json_encode(['error' => 'phone_required']);
-  exit;
-}
-
 $cashStmt = $pdo->prepare("SELECT id FROM accounts WHERE owner_type='user' AND owner_id=? AND purpose='cash' LIMIT 1");
 $cashStmt->execute([$uid]);
 $cashId = $cashStmt->fetchColumn();

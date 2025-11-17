@@ -3992,11 +3992,11 @@ async function submitBidForm(form){
     } else {
       const code = payload.error || 'unknown_error';
       let text = 'Não foi possível registrar o lance.';
-      if (code === 'phone_required') text = 'Cadastre um telefone válido para participar dos leilões.';
-      else if (code === 'amount_too_low') text = 'Lance abaixo do mínimo permitido para este lote.';
+      if (code === 'amount_too_low') text = 'Lance abaixo do mínimo permitido para este lote.';
       else if (code === 'auction_not_running' || code === 'auction_closed') text = 'Leilão não está mais ativo.';
       else if (code === 'auction_not_found') text = 'Leilão não encontrado.';
       else if (code === 'amount_invalid') text = 'Informe um valor de lance válido.';
+      else if (code === 'missing_accounts') text = 'Sua conta não possui as carteiras necessárias para dar lances.';
       if (msg) {
         msg.textContent = text;
         msg.classList.add('err');
@@ -4286,7 +4286,7 @@ async function viewAuctions(){
   view.className = 'auctions-view';
   const adminPanel = currentSession.is_admin
     ? '<section class="auction-admin-wrapper" data-role="auction-admin-panel"><div class="card"><p class="hint">Carregando painel administrativo...</p></div></section>'
-    : '<p class="hint auctions-admin-note">Toda a configuração é realizada pelos administradores. Usuários com telefone cadastrado podem dar lances.</p>';
+    : '<p class="hint auctions-admin-note">Toda a configuração é realizada pelos administradores. Usuários cadastrados podem dar lances.</p>';
   view.innerHTML = `
     <section class="auctions-shell">
       <header class="auctions-hero">
@@ -4299,7 +4299,7 @@ async function viewAuctions(){
           <button type="button" class="ghost" data-role="auction-refresh">Atualizar leilões</button>
         </div>
       </header>
-      <p class="hint auctions-instructions">Somente usuários registrados com telefone confirmado podem dar lances.</p>
+      <p class="hint auctions-instructions">Somente usuários registrados podem dar lances.</p>
       <div class="auction-list" data-role="auction-list">
         <p class="hint">Carregando leilões...</p>
       </div>
