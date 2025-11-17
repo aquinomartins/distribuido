@@ -11,12 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
+    $phone = trim($_POST['phone'] ?? '');
 
-    if ($name && $email && $password) {
+    if ($name && $email && $password && $phone) {
         // Gera hash seguro da senha
         $hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)");
-        $stmt->execute([$name, $email, $hash]);
+        $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$name, $email, $phone, $hash]);
         $id = $pdo->lastInsertId();
         echo "<h3>✅ Usuário criado com sucesso!</h3>";
         echo "<p>ID: <strong>$id</strong></p>";
@@ -47,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="post">
         <label>Nome:<br><input name="name" required></label><br>
         <label>Email:<br><input name="email" type="email" required></label><br>
+        <label>Telefone (com DDD):<br><input name="phone" type="tel" required></label><br>
         <label>Senha:<br><input name="password" type="password" required></label><br>
         <button type="submit">Criar</button>
     </form>
