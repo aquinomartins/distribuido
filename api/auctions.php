@@ -87,8 +87,8 @@ function handle_auctions_list(PDO $pdo) {
       'image_url' => $row['image_url'] ?? null,
       'reserve_price' => (float)$row['reserve_price'],
       'status' => $status,
-      'starts_at' => $row['starts_at'] ? date(DATE_ATOM, strtotime($row['starts_at'])) : null,
-      'ends_at' => $row['ends_at'] ? date(DATE_ATOM, strtotime($row['ends_at'])) : null,
+      'starts_at' => auctions_format_datetime_for_api($row['starts_at'] ?? null),
+      'ends_at' => auctions_format_datetime_for_api($row['ends_at'] ?? null),
       'highest_bid' => $highestAmount,
       'highest_bidder_name' => $stat['highest']['bidder_name'] ?? null,
       'bids_count' => $stat['count'],
@@ -137,10 +137,9 @@ function create_auction(PDO $pdo, array $body) {
     echo json_encode(['error' => 'missing_fields']);
     return;
   }
-  try {
-    $startsAt = new DateTimeImmutable($startsAtRaw);
-    $endsAt = new DateTimeImmutable($endsAtRaw);
-  } catch (Exception $e) {
+  $startsAt = auctions_parse_datetime($startsAtRaw);
+  $endsAt = auctions_parse_datetime($endsAtRaw);
+  if (!$startsAt || !$endsAt) {
     http_response_code(400);
     echo json_encode(['error' => 'invalid_schedule']);
     return;
@@ -150,7 +149,7 @@ function create_auction(PDO $pdo, array $body) {
     echo json_encode(['error' => 'invalid_schedule']);
     return;
   }
-  $now = new DateTimeImmutable('now');
+  $now = auctions_now();
   if ($endsAt <= $now) {
     http_response_code(400);
     echo json_encode(['error' => 'schedule_in_past']);
@@ -177,8 +176,8 @@ function create_auction(PDO $pdo, array $body) {
   $stmt->execute([
     $sellerId,
     $assetInstanceId,
-    $startsAt->format('Y-m-d H:i:s'),
-    $endsAt->format('Y-m-d H:i:s'),
+    auctions_store_datetime($startsAt),
+    auctions_store_datetime($endsAt),
     $reserve,
     $status
   ]);
@@ -200,19 +199,23 @@ function mutate_auction_status(PDO $pdo, array $body, string $mode) {
     echo json_encode(['error' => 'auction_not_found']);
     return;
   }
-  $now = new DateTimeImmutable('now');
+  $now = auctions_now();
   if ($mode === 'start') {
     if ($auction['status'] !== 'draft') {
       http_response_code(400);
       echo json_encode(['error' => 'invalid_status']);
       return;
     }
-    $endsAt = $auction['ends_at'] ? new DateTimeImmutable($auction['ends_at']) : $now->add(new DateInterval('PT30M'));
+    $endsAt = auctions_parse_datetime($auction['ends_at'] ?? null) ?: $now->add(new DateInterval('PT30M'));
     if ($endsAt <= $now) {
       $endsAt = $now->add(new DateInterval('PT30M'));
     }
     $update = $pdo->prepare("UPDATE auctions SET status='running', starts_at=?, ends_at=? WHERE id=?");
-    $update->execute([$now->format('Y-m-d H:i:s'), $endsAt->format('Y-m-d H:i:s'), $auctionId]);
+    $update->execute([
+      auctions_store_datetime($now),
+      auctions_store_datetime($endsAt),
+      $auctionId
+    ]);
     echo json_encode(['ok' => true, 'status' => 'running']);
     return;
   }
@@ -222,7 +225,7 @@ function mutate_auction_status(PDO $pdo, array $body, string $mode) {
       return;
     }
     $update = $pdo->prepare("UPDATE auctions SET status='ended', ends_at=? WHERE id=?");
-    $update->execute([$now->format('Y-m-d H:i:s'), $auctionId]);
+    $update->execute([auctions_store_datetime($now), $auctionId]);
     echo json_encode(['ok' => true, 'status' => 'ended']);
     return;
   }
