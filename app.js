@@ -56,6 +56,12 @@ function esc(str){
   })[s]);
 }
 
+function clamp(value, min, max){
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(Math.max(number, min), max);
+}
+
 function formatDateTime(value){
   if (!value) return '';
   const date = new Date(value);
@@ -4385,6 +4391,9 @@ function navigateToView(viewName, options = {}){
   const handler = VIEW_HANDLERS[viewName];
   if (typeof handler !== 'function') return false;
   handler();
+  requestAnimationFrame(()=>{
+    initCardTilt(document.getElementById('view'));
+  });
   setActiveMenuItem(viewName);
   if (options.updateUrl) {
     updateViewQueryParam(viewName);
@@ -4463,6 +4472,66 @@ function initDeepLink(){
   }
 }
 
+const INTERACTIVE_CARD_SELECTORS = ['.panel-card', '.hero-module'];
+
+function attachTiltHandlers(card){
+  if (!card || card.dataset.tiltReady === 'true') return;
+  card.dataset.tiltReady = 'true';
+  let frameId = null;
+  const maxRotate = 9;
+
+  const updateTilt = (event)=>{
+    if (!card.isConnected) return;
+    const rect = card.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const relativeX = clamp((event.clientX - rect.left) / rect.width - 0.5, -0.6, 0.6);
+    const relativeY = clamp((event.clientY - rect.top) / rect.height - 0.5, -0.6, 0.6);
+    if (frameId) cancelAnimationFrame(frameId);
+    frameId = requestAnimationFrame(()=>{
+      card.style.setProperty('--card-rotate-y', `${relativeX * maxRotate}deg`);
+      card.style.setProperty('--card-rotate-x', `${relativeY * -maxRotate}deg`);
+    });
+  };
+
+  const resetTilt = ()=>{
+    if (frameId) cancelAnimationFrame(frameId);
+    frameId = null;
+    card.style.setProperty('--card-rotate-y', '0deg');
+    card.style.setProperty('--card-rotate-x', '0deg');
+  };
+
+  card.addEventListener('pointermove', updateTilt);
+  card.addEventListener('pointerleave', resetTilt);
+  card.addEventListener('pointercancel', resetTilt);
+  card.addEventListener('pointerup', resetTilt);
+}
+
+function initCardTilt(root=document){
+  if (!root) return;
+  const selector = INTERACTIVE_CARD_SELECTORS.join(',');
+  if (!selector) return;
+  root.querySelectorAll(selector).forEach(attachTiltHandlers);
+}
+
+function initAmbientParallax(){
+  const root = document.documentElement;
+  if (!root) return;
+  let rafId = null;
+  const updateCursor = (event)=>{
+    const { clientX, clientY } = event;
+    const { innerWidth, innerHeight } = window;
+    if (!innerWidth || !innerHeight) return;
+    const ratioX = clamp(clientX / innerWidth, 0, 1);
+    const ratioY = clamp(clientY / innerHeight, 0, 1);
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(()=>{
+      root.style.setProperty('--cursor-x', ratioX.toFixed(4));
+      root.style.setProperty('--cursor-y', ratioY.toFixed(4));
+    });
+  };
+  document.addEventListener('pointermove', updateCursor);
+}
+
 /* ========= Init ========= */
 const defaultViewName = document.getElementById('view')?.dataset.defaultView || 'home';
 navigateToView(defaultViewName, { updateUrl: false });
@@ -4470,3 +4539,4 @@ initAuth();
 initMenu();
 initDeepLink();
 initResponsiveMenu();
+initAmbientParallax();
