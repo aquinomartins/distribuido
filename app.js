@@ -1757,7 +1757,7 @@ async function viewUserAssets(){
     },
     brl: {
       label: 'Reais (R$)',
-      description: 'Deposite ou utilize o saldo em moeda fiduciária.',
+      description: 'Utilize o saldo em moeda fiduciária.',
       amountLabel: 'Valor em R$',
       amountPlaceholder: 'Ex: 1500,00',
       step: '0.01',
@@ -1803,8 +1803,7 @@ async function viewUserAssets(){
           data-available-brl="${String(availableBrl)}">
           <label>Operação
             <select name="action">
-              <option value="deposit" selected>Depósito</option>
-              <option value="buy">Compra</option>
+              <option value="buy" selected>Compra</option>
               <option value="sell">Venda</option>
             </select>
           </label>
@@ -1907,7 +1906,7 @@ async function viewUserAssets(){
     const unitPriceField = form.querySelector('.field-unit-price');
 
     const toggleTradeFields = () => {
-      const action = actionSelect ? actionSelect.value : 'deposit';
+      const action = actionSelect ? actionSelect.value : 'buy';
       const isTrade = action !== 'deposit';
       if (counterpartyField) {
         counterpartyField.style.display = isTrade ? '' : 'none';
@@ -1956,7 +1955,7 @@ async function viewUserAssets(){
         return;
       }
 
-      const action = actionSelect ? actionSelect.value : 'deposit';
+      const action = actionSelect ? actionSelect.value : 'buy';
       const isTrade = action !== 'deposit';
       const amountValue = amountInput ? parseFloat(amountInput.value) : NaN;
       if (!Number.isFinite(amountValue) || amountValue <= 0) {
@@ -2001,7 +2000,7 @@ async function viewUserAssets(){
         }
       }
 
-      if ((action === 'buy' || action === 'deposit') && availableAsset < amountValue) {
+      if (action === 'buy' && availableAsset < amountValue) {
         if (messageBox) {
           messageBox.textContent = 'Os demais usuários não possuem saldo suficiente deste ativo para concluir a operação.';
           messageBox.classList.add('err');
@@ -2082,7 +2081,7 @@ async function viewUserAssets(){
           }
           form.reset();
           if (actionSelect) {
-            actionSelect.value = 'deposit';
+            actionSelect.value = 'buy';
           }
           toggleTradeFields();
         } else {
