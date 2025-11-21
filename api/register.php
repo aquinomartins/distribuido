@@ -13,22 +13,20 @@ $body = json_decode(file_get_contents('php://input'), true);
 $name = trim($body['name'] ?? '');
 $email = trim($body['email'] ?? '');
 $password = $body['password'] ?? '';
-$phone = trim($body['phone'] ?? '');
+$phoneInput = trim($body['phone'] ?? '');
+$phone = $phoneInput === '' ? null : $phoneInput;
 
-if ($phone === '') {
-  http_response_code(400);
-  echo json_encode(['error' => 'phone_required']);
-  exit;
+if ($phone !== null) {
+  $digits = preg_replace('/\D+/', '', $phone);
+  if (strlen($digits) < 10) {
+    http_response_code(400);
+    echo json_encode(['error' => 'phone_invalid']);
+    exit;
+  }
+  $sanitizedPhone = preg_replace('/[^0-9+()\-\s]/', '', $phone);
+} else {
+  $sanitizedPhone = null;
 }
-
-$digits = preg_replace('/\D+/', '', $phone);
-if (strlen($digits) < 10) {
-  http_response_code(400);
-  echo json_encode(['error' => 'phone_invalid']);
-  exit;
-}
-
-$sanitizedPhone = preg_replace('/[^0-9+()\-\s]/', '', $phone);
 
 if (!$name || !$email || !$password) {
   http_response_code(400);

@@ -1489,12 +1489,14 @@ function initAuth(){
     e.preventDefault();
     const name = document.getElementById('r_name').value;
     const email = document.getElementById('r_email').value;
-    const phone = document.getElementById('r_phone').value;
+    const phone = document.getElementById('r_phone').value.trim();
     const password = document.getElementById('r_password').value;
+    const payload = {name,email,password};
+    if (phone) payload.phone = phone;
     const r = await fetch(API('register.php'), {
       method:'POST', credentials:'include',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name,email,password,phone})
+      body: JSON.stringify(payload)
     });
     const msg = document.getElementById('authMsg');
     if (r.ok) {
@@ -1503,7 +1505,7 @@ function initAuth(){
       msg.classList.remove('err');
     } else {
       const err = await r.json().catch(()=>({}));
-      if (err.error === 'phone_required' || err.error === 'phone_invalid') {
+      if (err.error === 'phone_invalid') {
         msg.textContent = 'Erro: informe um telefone válido com DDD.';
       } else {
         msg.textContent = 'Erro ao registrar: ' + (err.detail || err.error || r.statusText);
