@@ -94,88 +94,134 @@ function formatSpecialAssetAmountText(asset, amount){
   return formatNumber(value);
 }
 
+const BEHANCE_GALLERY = [
+  {
+    title:'Dashboard de marketplace distribuído',
+    author:'Studio Aurora',
+    role:'Product Design',
+    likes:'2,3K',
+    views:'48,1K',
+    cover:'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    title:'Coleção de NFT generativa',
+    author:'Pixel Lab',
+    role:'Arte & Motion',
+    likes:'1,9K',
+    views:'31,4K',
+    cover:'https://images.unsplash.com/photo-1522198734915-76c764a8454d?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    title:'Eventos ao vivo com curadoria',
+    author:'Rise Design',
+    role:'Brand Experience',
+    likes:'3,1K',
+    views:'52,6K',
+    cover:'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    title:'Piscina de liquidez gamificada',
+    author:'Neon Labs',
+    role:'Interaction Design',
+    likes:'2,8K',
+    views:'44,2K',
+    cover:'https://images.unsplash.com/photo-1523968044756-39c9b6e2e59f?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    title:'Coleções premium da comunidade',
+    author:'Orbit Studio',
+    role:'Creative Direction',
+    likes:'1,4K',
+    views:'24,8K',
+    cover:'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    title:'Mercado ao vivo em real-time',
+    author:'Delta UX',
+    role:'UX Research',
+    likes:'2,0K',
+    views:'36,2K',
+    cover:'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=800&q=80'
+  }
+];
+
 function renderLandingView(){
   return `
-    <section class="landing-hero">
-      <div class="hero-backdrop" aria-hidden="true"></div>
-      <div class="hero-content">
-        <p class="hero-kicker">hub distribuído</p>
-        <h1>Bem-vindo! Escolha um módulo do menu.</h1>
-        <p>
-          Explore os ambientes de mercado, coleções e eventos em um painel vivo.
-          Cada módulo foi desenhado para reagir em tempo real às decisões da sua
-          equipe.
-        </p>
-        <div class="hero-actions">
-          <a class="hero-cta" href="#appMenu">Explorar módulos</a>
-          <a class="hero-ghost" href="#" data-view="live_market">Ver mercado ao vivo</a>
+    <section class="behance-hero">
+      <header class="behance-hero__top">
+        <div>
+          <p class="behance-hero__eyebrow">Descobrir</p>
+          <h1>Explore criações distribuídas como no Behance</h1>
+          <p>Um mural com curadoria de módulos, coleções e eventos para inspirar suas próximas decisões.</p>
         </div>
+        <div class="behance-hero__actions">
+          <a class="behance-button" href="#appMenu">Ver navegação</a>
+          <a class="behance-button behance-button--ghost" href="#" data-view="collections">Coleções em alta</a>
+        </div>
+      </header>
+
+        <div class="behance-search">
+          <input type="search" placeholder="Buscar projetos, pessoas ou módulos" aria-label="Buscar" />
+          <div class="behance-chips" aria-label="Filtros rápidos">
+            <button type="button" class="behance-chip is-active" data-view="home">Tudo</button>
+            <button type="button" class="behance-chip" data-view="live_market">Mercado ao vivo</button>
+            <button type="button" class="behance-chip" data-view="collections">Coleções</button>
+            <button type="button" class="behance-chip" data-view="events">Eventos</button>
+            <button type="button" class="behance-chip" data-view="user_assets">Meus ativos</button>
+          </div>
+        </div>
+      </section>
+
+    <section class="behance-showcase" aria-label="Galeria de inspirações">
+      <div class="behance-showcase__header">
+        <div>
+          <p class="behance-hero__eyebrow">Projetos em destaque</p>
+          <h2>Layout inspirado no Behance, mas focado em produto</h2>
+        </div>
+        <a class="behance-link" href="#" data-view="pending_transactions">Transações pendentes</a>
       </div>
-      <div class="hero-visual">
-        <div class="hero-orb" aria-hidden="true"></div>
-        <div class="hero-grid" aria-hidden="true"></div>
-        <ul class="hero-modules">
-          <li>
-            <button class="hero-module" type="button" data-view="live_market" aria-label="Ir para Mercado ao vivo">
-              <span>01</span>
-              <strong>Mercado ao vivo</strong>
-              <small>Liquidez dinâmica 24/7</small>
-            </button>
-          </li>
-          <li>
-            <button class="hero-module" type="button" data-view="collections" aria-label="Ir para Coleções">
-              <span>02</span>
-              <strong>Coleções</strong>
-              <small>Curadoria generativa e NFT</small>
-            </button>
-          </li>
-          <li>
-            <button class="hero-module" type="button" data-view="events" aria-label="Ir para Eventos">
-              <span>03</span>
-              <strong>Eventos</strong>
-              <small>Streams, torneios e ativos raros</small>
-            </button>
-          </li>
-        </ul>
+
+      <div class="behance-grid">
+        ${BEHANCE_GALLERY.map(project => `
+          <article class="behance-card">
+            <div class="behance-card__cover" style="background-image:url('${project.cover}')"></div>
+            <div class="behance-card__body">
+              <h3>${project.title}</h3>
+              <p>${project.author} • ${project.role}</p>
+            </div>
+            <footer class="behance-card__footer">
+              <span>❤ ${project.likes}</span>
+              <span>👁 ${project.views}</span>
+            </footer>
+          </article>
+        `).join('')}
       </div>
     </section>
 
-    <section class="landing-panels" aria-label="Resumo dos módulos">
-      <a class="panel-card" href="#" data-view="user_assets" aria-label="Ir para 1.8 Meus Ativos">
-        <header>
-          <p>1.8 Meus Ativos</p>
-          <strong>Controle total</strong>
-        </header>
-        <p>Gestão detalhada das posições e NFTs com filtros avançados.</p>
-      </a>
-      <a class="panel-card" href="#" data-view="pending_transactions" aria-label="Ir para Transações pendentes">
-        <header>
-          <p>Transações pendentes</p>
-          <strong>Fluxo em tempo real</strong>
-        </header>
-        <p>Assuma o comando das aprovações e mantenha o time sincronizado.</p>
-      </a>
-      <a class="panel-card" href="#" data-view="liquidity_game" aria-label="Ir para Jogo Piscina de Liquidez">
-        <header>
-          <p>Jogo Piscina de Liquidez</p>
-          <strong>Simulações</strong>
-        </header>
-        <p>Teste cenários de liquidez e compartilhe insights com o grupo.</p>
-      </a>
-    </section>
-
-    <section class="landing-footer">
-      <div>
-        <span>Status</span>
-        <strong>Plataforma ativa</strong>
+    <section class="behance-modules" aria-label="Atalhos para módulos">
+      <div class="behance-module">
+        <div>
+          <p class="behance-hero__eyebrow">1.8 Meus Ativos</p>
+          <h3>Portfólios claros, como perfis de criador</h3>
+          <p>Visualize NFTs e posições com a mesma leveza de um perfil Behance.</p>
+        </div>
+        <a class="behance-button" href="#" data-view="user_assets">Abrir módulo</a>
       </div>
-      <div>
-        <span>Última atualização</span>
-        <strong>Agora mesmo</strong>
+      <div class="behance-module">
+        <div>
+          <p class="behance-hero__eyebrow">Jogo Piscina de Liquidez</p>
+          <h3>Experimente, compare e salve variantes</h3>
+          <p>Teste simulações e compartilhe com a equipe, como uma coleção de estudos.</p>
+        </div>
+        <a class="behance-button" href="#" data-view="liquidity_game">Simular</a>
       </div>
-      <div>
-        <span>Equipe logada</span>
-        <strong>Conecte-se pelo menu</strong>
+      <div class="behance-module">
+        <div>
+          <p class="behance-hero__eyebrow">Eventos</p>
+          <h3>Eventos que parecem lançamentos criativos</h3>
+          <p>Landing clara, cards limpos e CTA direto para cada transmissão.</p>
+        </div>
+        <a class="behance-button" href="#" data-view="events">Ir para eventos</a>
       </div>
     </section>
   `;
@@ -184,7 +230,7 @@ function renderLandingView(){
 function viewHome(){
   const view = document.getElementById('view');
   if (!view) return;
-  view.className = 'landing-view';
+  view.className = 'landing-view behance-layout';
   view.innerHTML = renderLandingView();
 }
 
