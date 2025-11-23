@@ -3882,7 +3882,7 @@ function buildAuctionCard(auction, nowMs){
   const nextBidText = nextBid > 0 ? formatBRL(nextBid) : reserveText;
   const running = auction.status === 'running';
   const minValue = nextBid > 0 ? nextBid : 0.01;
-  const bidForm = running
+  const bidForm = running && currentSession.logged
     ? `
       <form class="auction-bid-form" data-role="bid-form" data-auction-id="${auction.id}">
         <label>
@@ -3893,31 +3893,47 @@ function buildAuctionCard(auction, nowMs){
         <p class="msg auction-msg" data-role="bid-msg"></p>
       </form>
     `
-    : '<p class="auction-closed">Lances indisponíveis para este leilão.</p>';
+    : running
+      ? `
+        <div class="auction-login-cta">
+          <p>Faça login ou cadastre-se para disputar este lote.</p>
+          <div class="auction-login-actions">
+            <button type="button" class="ghost" data-role="focus-login">Entrar</button>
+            <button type="button" data-role="focus-register">Criar conta</button>
+          </div>
+        </div>
+      `
+      : '<p class="auction-closed">Lances indisponíveis para este leilão.</p>';
 
   return `
     <article class="auction-card" data-auction="${auction.id}">
-      <div class="auction-thumb"><img src="${imageUrl}" alt="${title}" loading="lazy" /></div>
+      <div class="auction-media">
+        <span class="auction-badge">${statusLabel}</span>
+        <img src="${imageUrl}" alt="${title}" loading="lazy" />
+      </div>
       <div class="auction-body">
         <header class="auction-header">
           <div>
-            <p>Lote #${auction.id}</p>
-            <h2>${title}</h2>
+            <p class="auction-collection">Lote #${auction.id}</p>
+            <h3>${title}</h3>
           </div>
-          <span class="auction-status">${statusLabel}</span>
+          <div class="auction-countdown">
+            <span class="auction-phase" data-phase="${auction.id}">${countdown.label}</span>
+            <strong data-countdown="${auction.id}">${countdown.text}</strong>
+          </div>
         </header>
         ${desc}
-        <div class="auction-timer">
-          <span class="auction-phase" data-phase="${auction.id}">${countdown.label}</span>
-          <strong data-countdown="${auction.id}">${countdown.text}</strong>
-        </div>
         <dl class="auction-meta">
           <div><dt>Lance atual</dt><dd>${highestText}</dd></div>
           <div><dt>Próximo mínimo</dt><dd>${running ? nextBidText : '-'}</dd></div>
           <div><dt>Lances</dt><dd>${bidsCount}</dd></div>
         </dl>
-        <p class="auction-seller">Vendedor: ${seller}</p>
-        <p class="auction-reserve ${reserveReached ? 'ok' : ''}">${reserveReached ? 'Reserva atingida' : `Reserva: ${reserveText}`}</p>
+        <div class="auction-seller-line">
+          <span class="auction-seller">Vendedor: ${seller}</span>
+          <span class="auction-reserve ${reserveReached ? 'ok' : ''}">${reserveReached ? 'Reserva atingida' : `Reserva: ${reserveText}`}</span>
+        </div>
+      </div>
+      <div class="auction-actions">
         ${bidForm}
       </div>
     </article>
@@ -3942,7 +3958,7 @@ async function loadAuctionsSection(view){
   list.innerHTML = '<p class="hint">Carregando leilões...</p>';
   const data = await getJSON(API('auctions.php'));
   if (data.__auth === false) {
-    needLogin();
+    list.innerHTML = '<p class="hint">Os leilões podem ser visualizados sem login, tente novamente em instantes.</p>';
     return;
   }
   if (data.__forbidden) {
@@ -4045,6 +4061,27 @@ async function handleAuctionSubmit(event){
 }
 
 async function handleAuctionClick(event){
+  const focusLoginBtn = event.target.closest('[data-role="focus-login"]');
+  if (focusLoginBtn) {
+    event.preventDefault();
+    document.getElementById('appMenu')?.scrollIntoView({ behavior: 'smooth' });
+    const emailField = document.getElementById('email');
+    if (emailField) emailField.focus();
+    return;
+  }
+  const focusRegisterBtn = event.target.closest('[data-role="focus-register"]');
+  if (focusRegisterBtn) {
+    event.preventDefault();
+    const toggle = document.getElementById('toggleRegister');
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm && registerForm.style.display === 'none' && toggle) {
+      toggle.click();
+    }
+    document.getElementById('appMenu')?.scrollIntoView({ behavior: 'smooth' });
+    const nameField = document.getElementById('r_name');
+    if (nameField) nameField.focus();
+    return;
+  }
   const refreshBtn = event.target.closest('[data-role="auction-refresh"]');
   if (refreshBtn) {
     event.preventDefault();
@@ -4316,16 +4353,46 @@ async function viewAuctions(){
   view.innerHTML = `
     <section class="auctions-shell">
       <header class="auctions-hero">
-        <div>
+        <div class="auction-hero-copy">
           <p>Experiência em tempo real</p>
           <h1>Leilões de NFT</h1>
-          <span>Dispute ativos digitais com a contagem clássica "dou-lhe uma, dou-lhe duas, dou-lhe três".</span>
+          <span>Explore todos os lotes livremente, no estilo OpenSea. Para dar um lance, conecte-se.</span>
+          <div class="auction-hero-actions">
+            <button type="button" data-role="auction-refresh">Atualizar leilões</button>
+            <button type="button" class="ghost" data-role="focus-login">Entrar para dar lance</button>
+          </div>
+          <div class="auction-hero-stats">
+            <div>
+              <small>Acesso</small>
+              <strong>Visualização sem login</strong>
+            </div>
+            <div>
+              <small>Lances</small>
+              <strong>Exigem cadastro</strong>
+            </div>
+            <div>
+              <small>Layout</small>
+              <strong>Inspired by OpenSea</strong>
+            </div>
+          </div>
         </div>
-        <div class="auction-hero-actions">
-          <button type="button" class="ghost" data-role="auction-refresh">Atualizar leilões</button>
+        <div class="auction-hero-gallery" aria-hidden="true">
+          <div class="auction-hero-card"></div>
+          <div class="auction-hero-card"></div>
+          <div class="auction-hero-card"></div>
         </div>
       </header>
-      <p class="hint auctions-instructions">Somente usuários registrados podem dar lances.</p>
+      <div class="auction-grid-header">
+        <div>
+          <p>Catálogo ao vivo</p>
+          <h2>Veja tudo sem login</h2>
+          <span>Cadastre-se ou faça login somente quando estiver pronto para dar um lance.</span>
+        </div>
+        <div class="auction-grid-chips">
+          <span class="chip">Visível para todos</span>
+          <span class="chip chip-warning">Login exigido para lances</span>
+        </div>
+      </div>
       <div class="auction-list" data-role="auction-list">
         <p class="hint">Carregando leilões...</p>
       </div>
