@@ -29,6 +29,10 @@ function handle_auctions_list(PDO $pdo) {
                  u.name AS seller_name, u.email AS seller_email,
                  JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.image')) AS image_url,
                  JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.description')) AS nft_description,
+                 JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.dimensions')) AS dimensions,
+                 JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.technique')) AS technique,
+                 JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.author')) AS author,
+                 JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.year')) AS year,
                  JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.name')) AS nft_title,
                  w.title AS work_title, w.id AS work_id
           FROM auctions a
@@ -93,7 +97,11 @@ function handle_auctions_list(PDO $pdo) {
       'highest_bidder_name' => $stat['highest']['bidder_name'] ?? null,
       'bids_count' => $stat['count'],
       'next_minimum_bid' => $nextMinimum,
-      'work_id' => isset($row['work_id']) ? (int)$row['work_id'] : null
+      'work_id' => isset($row['work_id']) ? (int)$row['work_id'] : null,
+      'dimensions' => $row['dimensions'] ?? null,
+      'technique' => $row['technique'] ?? null,
+      'author' => $row['author'] ?? null,
+      'year' => $row['year'] ?? null
     ];
   }, $rows);
 

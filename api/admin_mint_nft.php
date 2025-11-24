@@ -16,6 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $title = isset($_POST['title']) ? trim($_POST['title']) : '';
 $user_id = isset($_POST['user_id']) ? (int)$_POST['user_id'] : 0;
 $description = isset($_POST['description']) ? trim($_POST['description']) : '';
+$dimensions = isset($_POST['dimensions']) ? trim($_POST['dimensions']) : '';
+$technique = isset($_POST['technique']) ? trim($_POST['technique']) : '';
+$author = isset($_POST['author']) ? trim($_POST['author']) : '';
+$year = isset($_POST['year']) ? trim($_POST['year']) : '';
 
 if ($title === '') {
     http_response_code(422);
@@ -101,7 +105,11 @@ try {
 
     $asset_meta = json_encode([
         'title' => $title,
-        'image' => $image_relative_path
+        'image' => $image_relative_path,
+        'dimensions' => $dimensions,
+        'technique' => $technique,
+        'author' => $author,
+        'year' => $year
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare("INSERT INTO assets(type, symbol, metadata_json) VALUES('nft', NULL, ?)");
     $stmt->execute([$asset_meta]);
@@ -112,13 +120,23 @@ try {
         'title' => $title,
         'description' => $description,
         'image' => $image_relative_path,
-        'mime' => $mime
+        'mime' => $mime,
+        'dimensions' => $dimensions,
+        'technique' => $technique,
+        'author' => $author,
+        'year' => $year
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare("INSERT INTO asset_instances(asset_id, chain, token_id, metadata_json) VALUES(?, 'internal', ?, ?)");
     $stmt->execute([$asset_id, $token_id, $instance_meta]);
     $instance_id = (int)$pdo->lastInsertId();
 
-    $work_specs = json_encode(['description' => $description], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $work_specs = json_encode([
+        'description' => $description,
+        'dimensions' => $dimensions,
+        'technique' => $technique,
+        'author' => $author,
+        'year' => $year
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare("INSERT INTO works(asset_instance_id, title, artist_id, specs_json) VALUES(?,?,?,?)");
     $stmt->execute([$instance_id, $title, $user_id, $work_specs]);
     $work_id = (int)$pdo->lastInsertId();
