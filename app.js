@@ -4128,18 +4128,21 @@ async function handleAuctionClick(event){
   const triggerLoginBidBtn = event.target.closest('[data-role="trigger-login-bid"]');
   if (triggerLoginBidBtn) {
     event.preventDefault();
+    if (showAuthOverlay()) return;
     needLogin();
     return;
   }
   const focusLoginBtn = event.target.closest('[data-role="focus-login"]');
   if (focusLoginBtn) {
     event.preventDefault();
+    if (showAuthOverlay()) return;
     needLogin();
     return;
   }
   const focusRegisterBtn = event.target.closest('[data-role="focus-register"]');
   if (focusRegisterBtn) {
     event.preventDefault();
+    if (showAuthOverlay({ focusRegister: true })) return;
     needLogin({ focusRegister: true });
     return;
   }
