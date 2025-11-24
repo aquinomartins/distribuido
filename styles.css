@@ -126,7 +126,7 @@ body.is-admin .admin-only { display:list-item; }
   text-transform:uppercase;
   color:rgba(255,255,255,0.4);
 }
-.menu a {
+.menu a:not(.menu-title__link) {
   color:#fff;
   text-decoration:none;
   display:block;
@@ -139,7 +139,7 @@ body.is-admin .admin-only { display:list-item; }
   position:relative;
   overflow:hidden;
 }
-.menu a::after{
+.menu a:not(.menu-title__link)::after{
   content:"";
   position:absolute;
   inset:0;
@@ -147,18 +147,18 @@ body.is-admin .admin-only { display:list-item; }
   opacity:0;
   transition:opacity .3s ease;
 }
-.menu a:hover,
-.menu a:focus-visible {
+.menu a:not(.menu-title__link):hover,
+.menu a:not(.menu-title__link):focus-visible {
   background:rgba(21,35,76,0.8);
   border-color:rgba(255,255,255,0.35);
   transform:translateX(6px) scale(1.01);
   box-shadow:0 25px 50px rgba(3,10,32,0.65);
   outline:none;
 }
-.menu a:hover::after,
-.menu a:focus-visible::after{opacity:1;}
-.menu a.is-active,
-.menu a[aria-current="page"] {
+.menu a:not(.menu-title__link):hover::after,
+.menu a:not(.menu-title__link):focus-visible::after{opacity:1;}
+.menu a:not(.menu-title__link).is-active,
+.menu a:not(.menu-title__link)[aria-current="page"] {
   background:linear-gradient(120deg, rgba(46,242,255,0.25), rgba(114,82,255,0.2));
   border-color:rgba(46,242,255,0.5);
   box-shadow:0 30px 80px rgba(46,242,255,0.25);
