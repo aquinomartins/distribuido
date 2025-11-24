@@ -2,10 +2,13 @@
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/auctions.php';
+require_once __DIR__ . '/../lib/util.php';
+require_once __DIR__ . '/../lib/special_liquidity_user.php';
 
 header('Content-Type: application/json');
 $pdo = db();
 auctions_sync_statuses($pdo);
+auctions_settle_winners($pdo);
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'GET') {
@@ -134,6 +137,141 @@ function handle_auctions_admin(PDO $pdo) {
   }
 }
 
+function auctions_settle_winners(PDO $pdo): void {
+  $sql = "SELECT DISTINCT a.id\n"
+       . "FROM auctions a\n"
+       . "JOIN bids b ON b.auction_id = a.id AND b.status IN ('valid','winner')\n"
+       . "WHERE a.status = 'ended'";
+  $stmt = $pdo->query($sql);
+  $ids = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+  foreach ($ids as $id) {
+    settle_auction($pdo, (int)$id);
+  }
+}
+
+function settle_auction(PDO $pdo, int $auctionId): void {
+  if ($auctionId <= 0) {
+    return;
+  }
+
+  $startedTx = !$pdo->inTransaction();
+  if ($startedTx) {
+    $pdo->beginTransaction();
+  }
+
+  try {
+    $auctionStmt = $pdo->prepare(
+      "SELECT a.id, a.status, a.seller_id, a.asset_instance_id, ai.asset_id\n"
+      . "FROM auctions a\n"
+      . "LEFT JOIN asset_instances ai ON ai.id = a.asset_instance_id\n"
+      . "WHERE a.id = ? FOR UPDATE"
+    );
+    $auctionStmt->execute([$auctionId]);
+    $auction = $auctionStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$auction || $auction['status'] === 'settled') {
+      if ($startedTx && $pdo->inTransaction()) {
+        $pdo->commit();
+      }
+      return;
+    }
+
+    $assetInstanceId = isset($auction['asset_instance_id']) ? (int)$auction['asset_instance_id'] : 0;
+    if ($assetInstanceId <= 0) {
+      if ($startedTx && $pdo->inTransaction()) {
+        $pdo->commit();
+      }
+      return;
+    }
+
+    $workStmt = $pdo->prepare('SELECT id FROM works WHERE asset_instance_id = ? LIMIT 1');
+    $workStmt->execute([$assetInstanceId]);
+    if (!$workStmt->fetchColumn()) {
+      if ($startedTx && $pdo->inTransaction()) {
+        $pdo->commit();
+      }
+      return;
+    }
+
+    $bidStmt = $pdo->prepare(
+      "SELECT id, bidder_id, amount\n"
+      . "FROM bids\n"
+      . "WHERE auction_id = ? AND status IN ('valid','winner')\n"
+      . "ORDER BY amount DESC, id DESC\n"
+      . "LIMIT 1 FOR UPDATE"
+    );
+    $bidStmt->execute([$auctionId]);
+    $winningBid = $bidStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$winningBid) {
+      if ($startedTx && $pdo->inTransaction()) {
+        $pdo->commit();
+      }
+      return;
+    }
+
+    $winnerId = (int)$winningBid['bidder_id'];
+    $sellerId = isset($auction['seller_id']) ? (int)$auction['seller_id'] : 0;
+
+    $pdo->prepare("UPDATE bids SET status='outbid' WHERE auction_id=? AND status='valid' AND id <> ?")
+        ->execute([$auctionId, (int)$winningBid['id']]);
+    $pdo->prepare("UPDATE bids SET status='winner' WHERE id=?")
+        ->execute([(int)$winningBid['id']]);
+
+    if ($winnerId > 0) {
+      ensure_user_accounts($winnerId);
+    }
+    if ($sellerId > 0) {
+      ensure_user_accounts($sellerId);
+    }
+
+    if ($winnerId > 0 && $sellerId > 0 && $winnerId !== $sellerId) {
+      $invStmt = $pdo->prepare(
+        "SELECT id FROM accounts WHERE owner_type='user' AND owner_id=? AND purpose='nft_inventory' LIMIT 1"
+      );
+      $invStmt->execute([$sellerId]);
+      $sellerInventory = $invStmt->fetchColumn();
+      $invStmt->execute([$winnerId]);
+      $winnerInventory = $invStmt->fetchColumn();
+
+      if (!$sellerInventory || !$winnerInventory) {
+        throw new RuntimeException('inventory_not_found');
+      }
+
+      $journal = $pdo->prepare("INSERT INTO journals(ref_type, ref_id, memo) VALUES('sell', ?, ?)");
+      $journal->execute([$auctionId, 'Liquidação de leilão #' . $auctionId]);
+      $journalId = (int)$pdo->lastInsertId();
+
+      $move = $pdo->prepare(
+        "INSERT INTO asset_moves(journal_id, asset_id, asset_instance_id, qty, from_account_id, to_account_id)\n"
+        . "VALUES (?,?,?,?,?,?)"
+      );
+      $move->execute([
+        $journalId,
+        isset($auction['asset_id']) ? (int)$auction['asset_id'] : null,
+        $assetInstanceId,
+        1,
+        $sellerInventory,
+        $winnerInventory
+      ]);
+
+      adjust_special_liquidity_assets($pdo, $winnerId, ['nft' => 1]);
+      adjust_special_liquidity_assets($pdo, $sellerId, ['nft' => -1]);
+    }
+
+    $pdo->prepare("UPDATE auctions SET status='settled' WHERE id=?")
+        ->execute([$auctionId]);
+
+    if ($startedTx && $pdo->inTransaction()) {
+      $pdo->commit();
+    }
+  } catch (Exception $e) {
+    if ($startedTx && $pdo->inTransaction()) {
+      $pdo->rollBack();
+    }
+    error_log('Falha ao liquidar leilão: ' . $e->getMessage());
+  }
+}
+
 function create_auction(PDO $pdo, array $body) {
   $sellerId = isset($body['seller_id']) ? (int)$body['seller_id'] : 0;
   $assetInstanceId = isset($body['asset_instance_id']) ? (int)$body['asset_instance_id'] : 0;
@@ -234,6 +372,7 @@ function mutate_auction_status(PDO $pdo, array $body, string $mode) {
     }
     $update = $pdo->prepare("UPDATE auctions SET status='ended', ends_at=? WHERE id=?");
     $update->execute([auctions_store_datetime($now), $auctionId]);
+    settle_auction($pdo, $auctionId);
     echo json_encode(['ok' => true, 'status' => 'ended']);
     return;
   }
