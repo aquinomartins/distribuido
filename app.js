@@ -12,13 +12,75 @@ let currentSession = {
   special_liquidity_email:null
 };
 
+let authOverlayEscHandler = null;
+
+function moveAuthBoxToOverlay(){
+  const overlaySlot = document.querySelector('[data-role="auth-overlay-slot"]');
+  const authBox = document.getElementById('authBox');
+  if (!overlaySlot || !authBox) return false;
+  if (!overlaySlot.contains(authBox)) {
+    overlaySlot.appendChild(authBox);
+  }
+  return true;
+}
+
+function restoreAuthBoxToMenu(){
+  const anchor = document.getElementById('authBoxAnchor');
+  const authBox = document.getElementById('authBox');
+  if (anchor && authBox && !anchor.contains(authBox)) {
+    anchor.prepend(authBox);
+  }
+}
+
+function closeAuthOverlay(){
+  const overlay = document.querySelector('[data-role="auth-overlay"]');
+  if (!overlay) return;
+  overlay.classList.remove('is-visible');
+  overlay.hidden = true;
+  document.body?.classList.remove('auth-overlay-open');
+  restoreAuthBoxToMenu();
+  if (authOverlayEscHandler) {
+    document.removeEventListener('keydown', authOverlayEscHandler);
+    authOverlayEscHandler = null;
+  }
+}
+
+function showAuthOverlay({ focusRegister=false } = {}){
+  const overlay = document.querySelector('[data-role="auth-overlay"]');
+  if (!overlay || !moveAuthBoxToOverlay()) return false;
+  overlay.hidden = false;
+  requestAnimationFrame(()=>{
+    overlay.classList.add('is-visible');
+  });
+  document.body?.classList.add('auth-overlay-open');
+  const toggleRegister = document.getElementById('toggleRegister');
+  const registerForm = document.getElementById('registerForm');
+  if (focusRegister && registerForm && toggleRegister && registerForm.style.display === 'none') {
+    toggleRegister.click();
+  }
+  const focusField = focusRegister ? document.getElementById('r_name') : document.getElementById('email');
+  if (focusField) {
+    focusField.focus({ preventScroll:true });
+  }
+  if (!authOverlayEscHandler) {
+    authOverlayEscHandler = (evt)=>{
+      if (evt.key === 'Escape') {
+        closeAuthOverlay();
+      }
+    };
+    document.addEventListener('keydown', authOverlayEscHandler);
+  }
+  return true;
+}
+
 /* ========= Helpers ========= */
 function table(rows, keys, labels){
   const thead = `<thead><tr>${labels.map(l=>`<th>${l}</th>`).join('')}</tr></thead>`;
   const tbody = `<tbody>${rows.map(r=>`<tr>${keys.map(k=>`<td>${(r[k]??'')}</td>`).join('')}</tr>`).join('')}</tbody>`;
   return `<table class="tbl">${thead}${tbody}</table>`;
 }
-function needLogin(){
+function needLogin(options={}){
+  if (showAuthOverlay(options)) return;
   document.getElementById('view').innerHTML = `<h1>Login necessário</h1><p>Use o formulário à esquerda (ou registre um novo usuário).</p>`;
 }
 async function getJSON(url, opts={}){
@@ -1459,6 +1521,7 @@ function initAuth(){
     if (res.ok) {
       msg.textContent = 'Login efetuado!';
       await refreshAuthUI();
+      closeAuthOverlay();
       document.getElementById('view').innerHTML = `<h1>Bem-vindo!</h1><p>Escolha um módulo do menu.</p>`;
     } else {
       try {
@@ -1476,6 +1539,7 @@ function initAuth(){
   document.getElementById('logoutBtn').addEventListener('click', async ()=>{
     await fetch(AUTH('logout.php'), { credentials:'include' });
     await refreshAuthUI();
+    closeAuthOverlay();
     document.getElementById('view').innerHTML = `<h1>Até mais!</h1><p>Você saiu da conta.</p>`;
   });
   // toggle register
@@ -4065,29 +4129,18 @@ async function handleAuctionClick(event){
   if (triggerLoginBidBtn) {
     event.preventDefault();
     needLogin();
-    const emailField = document.getElementById('email');
-    if (emailField) emailField.focus();
     return;
   }
   const focusLoginBtn = event.target.closest('[data-role="focus-login"]');
   if (focusLoginBtn) {
     event.preventDefault();
-    document.getElementById('appMenu')?.scrollIntoView({ behavior: 'smooth' });
-    const emailField = document.getElementById('email');
-    if (emailField) emailField.focus();
+    needLogin();
     return;
   }
   const focusRegisterBtn = event.target.closest('[data-role="focus-register"]');
   if (focusRegisterBtn) {
     event.preventDefault();
-    const toggle = document.getElementById('toggleRegister');
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm && registerForm.style.display === 'none' && toggle) {
-      toggle.click();
-    }
-    document.getElementById('appMenu')?.scrollIntoView({ behavior: 'smooth' });
-    const nameField = document.getElementById('r_name');
-    if (nameField) nameField.focus();
+    needLogin({ focusRegister: true });
     return;
   }
   const refreshBtn = event.target.closest('[data-role="auction-refresh"]');
@@ -4464,6 +4517,7 @@ function updateViewQueryParam(viewName){
 function navigateToView(viewName, options = {}){
   if (!viewName) return false;
   stopAuctionTicker();
+  closeAuthOverlay();
   const handler = VIEW_HANDLERS[viewName];
   if (typeof handler !== 'function') return false;
   handler();
@@ -4487,6 +4541,17 @@ function initMenu(){
       event.preventDefault();
     }
     navigateToView(viewName, { updateUrl: true });
+  });
+}
+
+function initAuthOverlayControls(){
+  const overlay = document.querySelector('[data-role="auth-overlay"]');
+  if (!overlay) return;
+  overlay.addEventListener('click', (event)=>{
+    const shouldClose = event.target.closest('[data-role="auth-overlay-close"]');
+    if (!shouldClose) return;
+    event.preventDefault();
+    closeAuthOverlay();
   });
 }
 
@@ -4612,6 +4677,7 @@ function initAmbientParallax(){
 const defaultViewName = document.getElementById('view')?.dataset.defaultView || 'home';
 navigateToView(defaultViewName, { updateUrl: false });
 initAuth();
+initAuthOverlayControls();
 initMenu();
 initDeepLink();
 initResponsiveMenu();
