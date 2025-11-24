@@ -158,6 +158,52 @@ function formatSpecialAssetAmountText(asset, amount){
   return formatNumber(value);
 }
 
+const MENU_SHOWCASE_ITEMS = [
+  { view: 'home', label: 'Home', description: 'Resumo inicial e destaques do hub.' },
+  { view: 'live_market', label: 'Mercado ao vivo', description: 'Cotações e liquidez em tempo real.' },
+  { view: 'collections', label: 'Coleções', description: 'Curadoria generativa e NFTs exclusivas.' },
+  { view: 'auctions', label: 'Leilões', description: 'Disputas ao vivo com lances e cronômetro.', featured: true },
+  { view: 'events', label: 'Eventos', description: 'Streams, torneios e ativos raros.' },
+  { view: 'user_assets', label: '1.8 Meus Ativos', description: 'Controle completo das posições.' },
+  { view: 'pending_transactions', label: 'Transações pendentes', description: 'Fluxo de autorizações e aprovações.' },
+  { view: 'liquidity_game', label: '1.7 Jogo Piscina de Liquidez', description: 'Simulações e partidas colaborativas.' },
+  { view: 'admin', label: 'Painel Administrativo', description: 'Gestão e configuração do ambiente.', adminOnly: true },
+  { view: 'admin_mint', label: 'Mint de NFT', description: 'Cadastro de novas peças no catálogo.', adminOnly: true },
+];
+
+function renderMenuShowcase(){
+  const visibleItems = MENU_SHOWCASE_ITEMS.filter(item => !(item.adminOnly && !currentSession.is_admin));
+  const cards = visibleItems.map((item, index)=>{
+    const isFeatured = item.featured;
+    const badge = isFeatured ? '<span class="menu-showcase__badge" aria-label="Acesso rápido ao módulo de leilões">Destaque</span>' : '';
+    const order = String(index + 1).padStart(2, '0');
+    return `
+      <button class="menu-showcase__item${isFeatured ? ' is-featured' : ''}" type="button" data-view="${item.view}">
+        <div class="menu-showcase__item-head">
+          <span class="menu-showcase__index">${order}</span>
+          ${badge}
+        </div>
+        <strong>${esc(item.label)}</strong>
+        <p>${esc(item.description)}</p>
+        <span class="menu-showcase__action">Acessar ${esc(item.label)}</span>
+      </button>
+    `;
+  }).join('');
+
+  return `
+    <section class="landing-menu-showcase" aria-label="Menu completo">
+      <div class="landing-menu-showcase__header">
+        <p>Menu completo</p>
+        <h2>Todos os módulos em um só lugar</h2>
+        <span>Atalhos rápidos para navegar logo após o login. Leilões está em destaque para você retomar as disputas com um clique.</span>
+      </div>
+      <div class="menu-showcase__grid">
+        ${cards}
+      </div>
+    </section>
+  `;
+}
+
 function renderLandingView(){
   return `
     <section class="landing-hero">
@@ -203,6 +249,8 @@ function renderLandingView(){
         </ul>
       </div>
     </section>
+
+    ${renderMenuShowcase()}
 
     <section class="landing-panels" aria-label="Resumo dos módulos">
       <a class="panel-card" href="#" data-view="user_assets" aria-label="Ir para 1.8 Meus Ativos">
@@ -1524,7 +1572,7 @@ function initAuth(){
       msg.textContent = 'Login efetuado!';
       await refreshAuthUI();
       closeAuthOverlay();
-      document.getElementById('view').innerHTML = `<h1>Bem-vindo!</h1><p>Escolha um módulo do menu.</p>`;
+      navigateToView('home', { updateUrl: true });
     } else {
       try {
         const err = await res.json();
@@ -4618,7 +4666,7 @@ function initDeepLink(){
   }
 }
 
-const INTERACTIVE_CARD_SELECTORS = ['.panel-card', '.hero-module'];
+const INTERACTIVE_CARD_SELECTORS = ['.panel-card', '.hero-module', '.menu-showcase__item'];
 
 function attachTiltHandlers(card){
   if (!card || card.dataset.tiltReady === 'true') return;

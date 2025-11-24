@@ -413,6 +413,21 @@ small.hint { color:#6b7280; }
 .hero-module small { color:#94a3b8; }
 .hero-module:hover, .hero-module:focus-visible { border-color:rgba(16,185,129,0.5); box-shadow:0 12px 30px rgba(16,185,129,0.25); outline:none; background:rgba(8,14,29,0.9); --card-translate-y:-4px; }
 .landing-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:20px; }
+.landing-menu-showcase { margin:28px 0; background:rgba(9,12,20,0.9); border:1px solid rgba(148,163,184,0.2); border-radius:24px; padding:24px 26px; box-shadow:0 24px 60px rgba(0,0,0,0.45); display:flex; flex-direction:column; gap:18px; }
+.landing-menu-showcase__header p { margin:0; text-transform:uppercase; letter-spacing:0.24em; font-size:0.75rem; color:#818cf8; }
+.landing-menu-showcase__header h2 { margin:6px 0; font-size:1.6rem; color:#fff; }
+.landing-menu-showcase__header span { color:#cbd5f5; }
+.menu-showcase__grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; }
+.menu-showcase__item { position:relative; width:100%; text-align:left; background:rgba(15,23,42,0.9); border:1px solid rgba(148,163,184,0.2); border-radius:16px; color:#e5e7eb; padding:16px 18px; cursor:pointer; font:inherit; display:flex; flex-direction:column; gap:8px; transition:transform .35s cubic-bezier(.2,.8,.2,1), border-color .2s ease, box-shadow .2s ease, background .2s ease; transform:perspective(1200px) rotateX(var(--card-rotate-x,0deg)) rotateY(var(--card-rotate-y,0deg)) translate3d(0,var(--card-translate-y,0),0); }
+.menu-showcase__item strong { font-size:1.1rem; }
+.menu-showcase__item p { margin:0; color:#cbd5f5; }
+.menu-showcase__item-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.menu-showcase__index { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; background:#0ea5e9; color:#04111f; font-weight:700; font-size:0.9rem; box-shadow:0 10px 26px rgba(14,165,233,0.35); }
+.menu-showcase__badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:linear-gradient(120deg, #22d3ee, #a855f7); color:#0b1020; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; font-size:0.7rem; box-shadow:0 16px 30px rgba(168,85,247,0.35); }
+.menu-showcase__action { text-transform:uppercase; letter-spacing:0.15em; font-size:0.72rem; color:#94a3b8; }
+.menu-showcase__item:hover, .menu-showcase__item:focus-visible { border-color:rgba(16,185,129,0.55); box-shadow:0 16px 40px rgba(16,185,129,0.25); outline:none; background:rgba(15,23,42,0.95); --card-translate-y:-4px; }
+.menu-showcase__item.is-featured { border-color:rgba(56,189,248,0.6); background:linear-gradient(140deg, rgba(56,189,248,0.18), rgba(15,23,42,0.92)); box-shadow:0 20px 50px rgba(56,189,248,0.25); }
+.menu-showcase__item.is-featured .menu-showcase__index { background:#38bdf8; color:#03121c; }
 .panel-card { background:rgba(15,23,42,0.85); border:1px solid rgba(148,163,184,0.2); border-radius:20px; padding:24px; box-shadow:0 25px 60px rgba(0,0,0,0.35); text-decoration:none; color:inherit; display:block; transition:transform .45s cubic-bezier(.2,.8,.2,1), border-color .25s ease, box-shadow .25s ease; position:relative; overflow:hidden; transform:perspective(1200px) rotateX(var(--card-rotate-x,0deg)) rotateY(var(--card-rotate-y,0deg)) translate3d(0,var(--card-translate-y,0),0); }
 .panel-card::after { content:""; position:absolute; inset:0; background:radial-gradient(circle at 100% 0%, rgba(56,189,248,0.2), transparent 50%); opacity:0; transition:opacity .3s ease; pointer-events:none; }
 .panel-card:hover, .panel-card:focus-visible { border-color:rgba(56,189,248,0.5); box-shadow:0 30px 80px rgba(15,23,42,0.6); outline:none; --card-translate-y:-6px; }
@@ -429,6 +444,7 @@ small.hint { color:#6b7280; }
   .landing-hero { padding:32px; }
   .hero-actions { flex-direction:column; align-items:flex-start; }
   .hero-visual { min-height:260px; }
+  .landing-menu-showcase { padding:20px; }
 }
 .collection-card-cover { width:100%; border-radius:14px; height:160px; object-fit:cover; }
 .collection-card-rank { position:absolute; top:12px; left:12px; background:rgba(15,23,42,0.85); border-radius:999px; padding:4px 10px; font-size:0.8rem; }
