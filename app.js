@@ -48,7 +48,8 @@ function closeAuthOverlay(){
 function showAuthOverlay({ focusRegister=false } = {}){
   const overlay = document.querySelector('[data-role="auth-overlay"]');
   if (!overlay || !moveAuthBoxToOverlay()) return false;
-  overlay.classList.remove('is-mobile');
+  const prefersMobileLayout = window.matchMedia('(max-width: 768px)').matches;
+  overlay.classList.toggle('is-mobile', prefersMobileLayout);
   overlay.hidden = false;
   requestAnimationFrame(()=>{
     overlay.classList.add('is-visible');
