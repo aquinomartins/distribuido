@@ -175,28 +175,17 @@ function renderMenuShowcase(){
   const visibleItems = MENU_SHOWCASE_ITEMS.filter(item => !(item.adminOnly && !currentSession.is_admin));
   const cards = visibleItems.map((item, index)=>{
     const isFeatured = item.featured;
-    const badge = isFeatured ? '<span class="menu-showcase__badge" aria-label="Acesso rápido ao módulo de leilões">Destaque</span>' : '';
     const order = String(index + 1).padStart(2, '0');
     return `
       <button class="menu-showcase__item${isFeatured ? ' is-featured' : ''}" type="button" data-view="${item.view}">
-        <div class="menu-showcase__item-head">
-          <span class="menu-showcase__index">${order}</span>
-          ${badge}
-        </div>
+        <span class="menu-showcase__index">${order}</span>
         <strong>${esc(item.label)}</strong>
-        <p>${esc(item.description)}</p>
-        <span class="menu-showcase__action">Acessar ${esc(item.label)}</span>
       </button>
     `;
   }).join('');
 
   return `
-    <section class="landing-menu-showcase" aria-label="Menu completo">
-      <div class="landing-menu-showcase__header">
-        <p>Menu completo</p>
-        <h2>Todos os módulos em um só lugar</h2>
-        <span>Atalhos rápidos para navegar logo após o login. Leilões está em destaque para você retomar as disputas com um clique.</span>
-      </div>
+    <section class="landing-menu-showcase" aria-label="Menu de módulos">
       <div class="menu-showcase__grid">
         ${cards}
       </div>
@@ -205,92 +194,7 @@ function renderMenuShowcase(){
 }
 
 function renderLandingView(){
-  return `
-    <section class="landing-hero">
-      <div class="hero-backdrop" aria-hidden="true"></div>
-      <div class="hero-content">
-        <p class="hero-kicker">hub distribuído</p>
-        <h1>Bem-vindo! Escolha um módulo do menu.</h1>
-        <p>
-          Explore os ambientes de mercado, coleções e eventos em um painel vivo.
-          Cada módulo foi desenhado para reagir em tempo real às decisões da sua
-          equipe.
-        </p>
-        <div class="hero-actions">
-          <a class="hero-cta" href="#appMenu">Explorar módulos</a>
-          <a class="hero-ghost" href="#" data-view="live_market">Ver mercado ao vivo</a>
-        </div>
-      </div>
-      <div class="hero-visual">
-        <div class="hero-orb" aria-hidden="true"></div>
-        <div class="hero-grid" aria-hidden="true"></div>
-        <ul class="hero-modules">
-          <li>
-            <button class="hero-module" type="button" data-view="live_market" aria-label="Ir para Mercado ao vivo">
-              <span>01</span>
-              <strong>Mercado ao vivo</strong>
-              <small>Liquidez dinâmica 24/7</small>
-            </button>
-          </li>
-          <li>
-            <button class="hero-module" type="button" data-view="collections" aria-label="Ir para Coleções">
-              <span>02</span>
-              <strong>Coleções</strong>
-              <small>Curadoria generativa e NFT</small>
-            </button>
-          </li>
-          <li>
-            <button class="hero-module" type="button" data-view="events" aria-label="Ir para Eventos">
-              <span>03</span>
-              <strong>Eventos</strong>
-              <small>Streams, torneios e ativos raros</small>
-            </button>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    ${renderMenuShowcase()}
-
-    <section class="landing-panels" aria-label="Resumo dos módulos">
-      <a class="panel-card" href="#" data-view="user_assets" aria-label="Ir para 1.8 Meus Ativos">
-        <header>
-          <p>1.8 Meus Ativos</p>
-          <strong>Controle total</strong>
-        </header>
-        <p>Gestão detalhada das posições e NFTs com filtros avançados.</p>
-      </a>
-      <a class="panel-card" href="#" data-view="pending_transactions" aria-label="Ir para Transações pendentes">
-        <header>
-          <p>Transações pendentes</p>
-          <strong>Fluxo em tempo real</strong>
-        </header>
-        <p>Assuma o comando das aprovações e mantenha o time sincronizado.</p>
-      </a>
-      <a class="panel-card" href="#" data-view="liquidity_game" aria-label="Ir para Jogo Piscina de Liquidez">
-        <header>
-          <p>Jogo Piscina de Liquidez</p>
-          <strong>Simulações</strong>
-        </header>
-        <p>Teste cenários de liquidez e compartilhe insights com o grupo.</p>
-      </a>
-    </section>
-
-    <section class="landing-footer">
-      <div>
-        <span>Status</span>
-        <strong>Plataforma ativa</strong>
-      </div>
-      <div>
-        <span>Última atualização</span>
-        <strong>Agora mesmo</strong>
-      </div>
-      <div>
-        <span>Equipe logada</span>
-        <strong>Conecte-se pelo menu</strong>
-      </div>
-    </section>
-  `;
+  return renderMenuShowcase();
 }
 
 function viewHome(){
