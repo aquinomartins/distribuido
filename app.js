@@ -2621,12 +2621,19 @@ function renderMintedNftList(container, items){
     const owner = esc(item.owner_name || 'Usuário removido');
     const ownerEmail = item.owner_email ? ` <small>${esc(item.owner_email)}</small>` : '';
     const desc = item.description ? `<p class="minted-desc">${esc(item.description)}</p>` : '';
+    const metadata = [
+      item.author ? `<li><strong>Autor:</strong> ${esc(item.author)}</li>` : '',
+      item.year ? `<li><strong>Ano:</strong> ${esc(item.year)}</li>` : '',
+      item.technique ? `<li><strong>Técnica:</strong> ${esc(item.technique)}</li>` : '',
+      item.dimensions ? `<li><strong>Dimensões:</strong> ${esc(item.dimensions)}</li>` : ''
+    ].filter(Boolean).join('');
+    const metaList = metadata ? `<ul class="minted-meta-list">${metadata}</ul>` : '';
     const mintedAt = formatDateTime(item.created_at) || '';
     const tokenTag = item.instance_id ? `#${item.instance_id}` : '#-';
     const workId = Number(item.work_id) || '';
     const actions = workId
       ? `<div class="minted-actions">
-          <button type="button" class="minted-edit-btn" data-action="edit-minted" data-work-id="${workId}" data-title="${title}" data-description="${esc(item.description || '')}" data-image="${esc(imagePath)}">Editar NFT</button>
+          <button type="button" class="minted-edit-btn" data-action="edit-minted" data-work-id="${workId}" data-title="${title}" data-description="${esc(item.description || '')}" data-image="${esc(imagePath)}" data-author="${esc(item.author || '')}" data-year="${esc(item.year || '')}" data-technique="${esc(item.technique || '')}" data-dimensions="${esc(item.dimensions || '')}">Editar NFT</button>
           <button type="button" class="minted-delete-btn" data-action="delete-minted" data-work-id="${workId}" data-title="${title}">Excluir NFT</button>
         </div>`
       : '';
@@ -2642,6 +2649,7 @@ function renderMintedNftList(container, items){
           </header>
           <p class="minted-owner"><strong>Proprietário:</strong> ${owner}${ownerEmail}</p>
           ${desc}
+          ${metaList}
           <p class="minted-meta">${mintedAt ? `Registrado em ${mintedAt}` : ''}</p>
           ${actions}
         </div>
@@ -2695,6 +2703,14 @@ async function viewAdminMint(){
           <input type="text" name="title" placeholder="Ex: Aurora Digital" required ${selectDisabled} />
           <label>Descrição</label>
           <textarea name="description" rows="3" placeholder="Detalhes da obra" ${selectDisabled}></textarea>
+          <label>Autor</label>
+          <input type="text" name="author" placeholder="Ex: Coletivo Ergo" ${selectDisabled} />
+          <label>Ano</label>
+          <input type="text" name="year" placeholder="Ex: 2024" ${selectDisabled} />
+          <label>Técnica</label>
+          <input type="text" name="technique" placeholder="Ex: Collage digital" ${selectDisabled} />
+          <label>Dimensões</label>
+          <input type="text" name="dimensions" placeholder="Ex: 1920x1080 px" ${selectDisabled} />
           <label>Imagem (PNG, JPG, GIF ou WEBP)</label>
           <input type="file" name="image" accept="image/*" required ${selectDisabled} />
           <p class="hint">A imagem será enviada e armazenada no servidor no momento do mint.</p>
@@ -2752,6 +2768,14 @@ async function viewAdminMint(){
           <input type="text" name="title" required maxlength="160" />
           <label>Descrição</label>
           <textarea name="description" rows="3" placeholder="Detalhes da obra"></textarea>
+          <label>Autor</label>
+          <input type="text" name="author" placeholder="Ex: Coletivo Ergo" />
+          <label>Ano</label>
+          <input type="text" name="year" placeholder="Ex: 2024" />
+          <label>Técnica</label>
+          <input type="text" name="technique" placeholder="Ex: Collage digital" />
+          <label>Dimensões</label>
+          <input type="text" name="dimensions" placeholder="Ex: 1920x1080 px" />
           <label>Nova imagem (opcional)</label>
           <input type="file" name="image" accept="image/*" />
           <p class="hint">Formatos suportados: JPG, PNG, GIF ou WEBP (até 5 MB).</p>
@@ -2767,6 +2791,10 @@ async function viewAdminMint(){
     const previewImg = overlay.querySelector('[data-role="minted-edit-preview"]');
     const titleInput = form.querySelector('[name="title"]');
     const descInput = form.querySelector('[name="description"]');
+    const authorInput = form.querySelector('[name="author"]');
+    const yearInput = form.querySelector('[name="year"]');
+    const techniqueInput = form.querySelector('[name="technique"]');
+    const dimensionsInput = form.querySelector('[name="dimensions"]');
     const imageInput = form.querySelector('[name="image"]');
     let currentPreview = NFT_IMAGE_PLACEHOLDER;
     let latestObjectUrl = null;
@@ -2876,6 +2904,10 @@ async function viewAdminMint(){
         form.dataset.workId = data.workId || '';
         titleInput.value = data.title || '';
         descInput.value = data.description || '';
+        authorInput.value = data.author || '';
+        yearInput.value = data.year || '';
+        techniqueInput.value = data.technique || '';
+        dimensionsInput.value = data.dimensions || '';
         currentPreview = data.image || NFT_IMAGE_PLACEHOLDER;
         previewImg.src = currentPreview;
         msgEl.textContent = '';
@@ -2910,7 +2942,11 @@ async function viewAdminMint(){
           workId: Number(editBtn.getAttribute('data-work-id')),
           title: editBtn.getAttribute('data-title') || '',
           description: editBtn.getAttribute('data-description') || '',
-          image: editBtn.getAttribute('data-image') || NFT_IMAGE_PLACEHOLDER
+          image: editBtn.getAttribute('data-image') || NFT_IMAGE_PLACEHOLDER,
+          author: editBtn.getAttribute('data-author') || '',
+          year: editBtn.getAttribute('data-year') || '',
+          technique: editBtn.getAttribute('data-technique') || '',
+          dimensions: editBtn.getAttribute('data-dimensions') || ''
         });
         return;
       }
@@ -3376,6 +3412,12 @@ function openMintedItemModal(workId){
   const tokenId = item.instance_id ? `#${item.instance_id}` : '#—';
   const description = item.description ? esc(item.description) : 'Nenhuma descrição foi informada para esta NFT.';
   const imageUrl = esc(item.image_url || placeholder);
+  const metadata = [
+    item.author ? `<div><dt>Autor</dt><dd>${esc(item.author)}</dd></div>` : '',
+    item.year ? `<div><dt>Ano</dt><dd>${esc(item.year)}</dd></div>` : '',
+    item.technique ? `<div><dt>Técnica</dt><dd>${esc(item.technique)}</dd></div>` : '',
+    item.dimensions ? `<div><dt>Dimensões</dt><dd>${esc(item.dimensions)}</dd></div>` : ''
+  ].filter(Boolean).join('');
   modal.innerHTML = `
     <div class="item-modal-backdrop" data-action="close"></div>
     <article class="item-modal-card minted-detail">
@@ -3403,6 +3445,7 @@ function openMintedItemModal(workId){
               <dt>ID interno</dt>
               <dd>${item.work_id || '—'}</dd>
             </div>
+            ${metadata}
           </dl>
           <div class="item-modal-description">
             <h3>Descrição</h3>
@@ -3518,12 +3561,20 @@ function renderMintedCollectionsGrid(section, payload){
         ? `<p>${esc(truncateText(item.description, 110))}</p>`
         : '<p class="muted">Sem descrição</p>';
       const mintedText = formatDateTime(item.created_at) || '';
+      const metaBits = [
+        item.author ? `<small>Autor: ${esc(item.author)}</small>` : '',
+        item.year ? `<small>Ano: ${esc(item.year)}</small>` : '',
+        item.technique ? `<small>Técnica: ${esc(item.technique)}</small>` : '',
+        item.dimensions ? `<small>Dimensões: ${esc(item.dimensions)}</small>` : ''
+      ].filter(Boolean).join(' · ');
+      const metaText = metaBits ? `<p class="minted-meta-inline">${metaBits}</p>` : '';
       return `
         <div class="minted-collection-item" data-work-id="${item.work_id || ''}">
           <img src="${imageUrl}" alt="${title}" loading="lazy" />
           <div>
             <strong>${title}</strong>
             ${desc}
+            ${metaText}
             <small>${mintedText ? `Mintado em ${mintedText}` : 'Data não informada'}</small>
           </div>
         </div>
@@ -3983,6 +4034,13 @@ function buildAuctionCard(auction, nowMs){
   const desc = auction.description
     ? `<p>${esc(truncateText(auction.description, 180))}</p>`
     : '<p class="hint">Sem descrição.</p>';
+  const metaPieces = [
+    auction.author ? `Autor: ${esc(auction.author)}` : '',
+    auction.year ? `Ano: ${esc(auction.year)}` : '',
+    auction.technique ? `Técnica: ${esc(auction.technique)}` : '',
+    auction.dimensions ? `Dimensões: ${esc(auction.dimensions)}` : ''
+  ].filter(Boolean).join(' · ');
+  const metaText = metaPieces ? `<p class="auction-meta-inline">${metaPieces}</p>` : '';
   const seller = esc(auction.seller_name || 'Admin');
   const statusLabel = AUCTION_STATUS_LABELS[auction.status] || auction.status;
   const countdown = getAuctionCountdownState(auction, nowMs);
@@ -4037,6 +4095,7 @@ function buildAuctionCard(auction, nowMs){
           </div>
         </header>
         ${desc}
+        ${metaText}
         <dl class="auction-meta">
           <div><dt>Lance atual</dt><dd>${highestText}</dd></div>
           <div><dt>Próximo mínimo</dt><dd>${running ? nextBidText : '-'}</dd></div>

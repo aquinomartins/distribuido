@@ -11,6 +11,10 @@ try {
                ai.id AS instance_id,
                JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.image')) AS image_url,
                JSON_UNQUOTE(JSON_EXTRACT(ai.metadata_json, '$.description')) AS description,
+               JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.dimensions')) AS dimensions,
+               JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.technique')) AS technique,
+               JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.author')) AS author,
+               JSON_UNQUOTE(JSON_EXTRACT(w.specs_json, '$.year')) AS year,
                u.id AS owner_id,
                u.name AS owner_name,
                u.email AS owner_email
@@ -44,6 +48,10 @@ try {
             'instance_id' => $row['instance_id'],
             'image_url' => $row['image_url'],
             'description' => $row['description'],
+            'dimensions' => $row['dimensions'],
+            'technique' => $row['technique'],
+            'author' => $row['author'],
+            'year' => $row['year'],
             'created_at' => $row['created_at']
         ];
         $totalItems++;
