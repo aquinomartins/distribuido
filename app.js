@@ -3896,10 +3896,10 @@ function buildAuctionCard(auction, nowMs){
     : running
       ? `
         <div class="auction-login-cta">
-          <p>Faça login ou cadastre-se para disputar este lote.</p>
+          <p>Visualize os leilões livremente. Para dar um lance, conecte-se.</p>
           <div class="auction-login-actions">
-            <button type="button" class="ghost" data-role="focus-login">Entrar</button>
-            <button type="button" data-role="focus-register">Criar conta</button>
+            <button type="button" data-role="trigger-login-bid">Dar lance</button>
+            <button type="button" class="ghost" data-role="focus-register">Criar conta</button>
           </div>
         </div>
       `
@@ -4061,6 +4061,14 @@ async function handleAuctionSubmit(event){
 }
 
 async function handleAuctionClick(event){
+  const triggerLoginBidBtn = event.target.closest('[data-role="trigger-login-bid"]');
+  if (triggerLoginBidBtn) {
+    event.preventDefault();
+    needLogin();
+    const emailField = document.getElementById('email');
+    if (emailField) emailField.focus();
+    return;
+  }
   const focusLoginBtn = event.target.closest('[data-role="focus-login"]');
   if (focusLoginBtn) {
     event.preventDefault();
