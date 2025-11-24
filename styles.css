@@ -99,6 +99,8 @@ body.auth-overlay-open { overflow:hidden; }
 .menu-top { display:flex; justify-content:space-between; align-items:center; gap:16px; position:relative; z-index:1; }
 .menu-title { display:flex; flex-direction:column; gap:4px; }
 .menu-label { font-size:0.8rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); }
+.menu-title__link { color:var(--muted); text-decoration:none; display:inline-block; }
+.menu-title__link:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
 .menu-content { margin-top:24px; display:flex; flex-direction:column; gap:28px; position:relative; z-index:1; }
 .menu-nav__hint { margin:0 0 8px; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.4em; }
 .menu-toggle { display:none; width:48px; height:48px; border-radius:14px; border:1px solid rgba(255,255,255,0.35); background:rgba(5,9,20,0.7); cursor:pointer; padding:0; align-items:center; justify-content:center; box-shadow:0 15px 30px rgba(0,0,0,0.35); }
