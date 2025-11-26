@@ -4993,12 +4993,11 @@ function initDeepLink(){
     const url = new URL(window.location.href);
     const viewParam = url.searchParams.get('view');
     if (viewParam) {
-      return navigateToView(viewParam);
+      navigateToView(viewParam);
     }
   } catch (err) {
     console.warn('Não foi possível carregar o view a partir da URL.', err);
   }
-  return false;
 }
 
 const INTERACTIVE_CARD_SELECTORS = ['.panel-card', '.hero-module', '.menu-showcase__item'];
@@ -5063,16 +5062,10 @@ function initAmbientParallax(){
 
 /* ========= Init ========= */
 const defaultViewName = document.getElementById('view')?.dataset.defaultView || 'home';
+navigateToView(defaultViewName, { updateUrl: false });
 initAuth();
 initAuthOverlayControls();
 initMenu();
+initDeepLink();
 initResponsiveMenu();
 initAmbientParallax();
-
-(async ()=>{
-  await refreshAuthUI();
-  const navigated = initDeepLink();
-  if (!navigated) {
-    navigateToView(defaultViewName, { updateUrl: false });
-  }
-})();
