@@ -270,6 +270,13 @@ small.hint { color:#6b7280; }
 .admin-dashboard .stat-card span { display:block; font-size:0.85rem; color:#d1d5db; text-transform:uppercase; letter-spacing:0.05em; }
 .admin-dashboard .stat-card strong { font-size:1.4rem; display:block; margin-top:4px; }
 .admin-special-user { margin:20px 0; }
+.admin-category { margin:20px 0; }
+.admin-pais-wrapper { margin-top:12px; }
+.admin-pais-wrapper h3 { margin:0 0 6px; }
+.admin-pais-list { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-wrap:wrap; gap:8px; }
+.admin-pais-list li { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:8px 12px; display:flex; align-items:center; gap:8px; }
+.admin-pais-list .pais-name { font-weight:600; color:var(--text); }
+.admin-pais-list .tag { background:#2563eb; color:#fff; padding:2px 8px; border-radius:999px; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; }
 .special-user-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
 .special-user-actions select { flex:1; min-width:200px; padding:8px; border-radius:8px; border:1px solid var(--line); background:#0f172a; color:var(--text); }
 .special-user-actions button { padding:10px 16px; border-radius:8px; border:0; background:var(--accent); color:var(--accentText); font-weight:600; cursor:pointer; }
