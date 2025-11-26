@@ -274,18 +274,6 @@ small.hint { color:#6b7280; }
 .special-user-actions select { flex:1; min-width:200px; padding:8px; border-radius:8px; border:1px solid var(--line); background:#0f172a; color:var(--text); }
 .special-user-actions button { padding:10px 16px; border-radius:8px; border:0; background:var(--accent); color:var(--accentText); font-weight:600; cursor:pointer; }
 .special-user-actions button[disabled] { opacity:0.6; cursor:not-allowed; }
-.admin-parent-tabs { margin:20px 0; }
-.parent-tabs-grid { display:grid; gap:12px; grid-template-columns: minmax(220px, 1fr); align-items:flex-start; }
-.parent-tab-options { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-top:4px; }
-.parent-tab-option { display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#0f172a; color:var(--text); }
-.parent-tab-option input { accent-color: var(--accent); }
-.parent-tab-option span { font-weight:600; }
-.parent-actions { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
-.parent-actions button { align-self:flex-start; padding:10px 16px; border-radius:8px; border:0; background:var(--accent); color:var(--accentText); font-weight:700; cursor:pointer; }
-.parent-actions button[disabled] { opacity:0.6; cursor:not-allowed; }
-.admin-parent-tabs .form-field { display:flex; flex-direction:column; gap:6px; }
-.admin-parent-tabs .form-field span { color:var(--muted); font-size:0.9rem; }
-.admin-parent-tabs select { padding:10px; border-radius:10px; border:1px solid var(--line); background:#0f172a; color:var(--text); }
 .user-assets h1 { margin-top:0; }
 .user-asset-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top:16px; }
 .user-asset-card { background:#0f172a; color:#f9fafb; border:1px solid #1f2937; border-radius:12px; padding:16px; box-shadow:0 8px 16px rgba(15, 23, 42, 0.25); }

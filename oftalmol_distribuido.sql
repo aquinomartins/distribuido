@@ -871,18 +871,6 @@ INSERT INTO `special_liquidity_guardian` (`id`, `user_id`, `updated_at`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `parent_tab_visibility`
---
-
-CREATE TABLE `parent_tab_visibility` (
-  `user_id` bigint NOT NULL,
-  `allowed_tabs` json NOT NULL,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- --------------------------------------------------------
-
---
 -- Estrutura para tabela `trades`
 --
 
@@ -1229,12 +1217,6 @@ ALTER TABLE `special_liquidity_guardian`
   ADD KEY `fk_special_liquidity_guardian_user` (`user_id`);
 
 --
--- Índices de tabela `parent_tab_visibility`
---
-ALTER TABLE `parent_tab_visibility`
-  ADD PRIMARY KEY (`user_id`);
-
---
 -- Índices de tabela `trades`
 --
 ALTER TABLE `trades`
@@ -1568,12 +1550,6 @@ ALTER TABLE `special_liquidity_assets`
 --
 ALTER TABLE `special_liquidity_guardian`
   ADD CONSTRAINT `fk_special_liquidity_guardian_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Restrições para tabelas `parent_tab_visibility`
---
-ALTER TABLE `parent_tab_visibility`
-  ADD CONSTRAINT `parent_tab_visibility_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Restrições para tabelas `works`
