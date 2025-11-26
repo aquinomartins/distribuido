@@ -9,8 +9,7 @@ let currentSession = {
   name:null,
   email:null,
   is_special_liquidity_user:false,
-  special_liquidity_email:null,
-  category:null
+  special_liquidity_email:null
 };
 
 let authOverlayEscHandler = null;
@@ -132,13 +131,6 @@ function formatDateTime(value){
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-}
-
-function formatCategoryLabel(value){
-  const label = String(value ?? '').trim();
-  if (!label) return '—';
-  if (label.toLowerCase() === 'pais') return 'Pais';
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function formatSpecialAssetAction(action){
@@ -1528,8 +1520,7 @@ async function refreshAuthUI(){
     email: s && s.email ? String(s.email) : null,
     is_admin: !!(s && s.is_admin),
     is_special_liquidity_user: !!(s && s.is_special_liquidity_user),
-    special_liquidity_email: s && s.special_liquidity_email ? String(s.special_liquidity_email) : null,
-    category: s && s.category ? String(s.category) : null
+    special_liquidity_email: s && s.special_liquidity_email ? String(s.special_liquidity_email) : null
   };
 
   const loginForm = document.getElementById('loginForm');
@@ -1547,9 +1538,6 @@ async function refreshAuthUI(){
       }
       if (currentSession.is_admin) {
         label += ' • Admin';
-      }
-      if (currentSession.category) {
-        label += ` • ${currentSession.category}`;
       }
       sessionInfo.textContent = label;
     }
@@ -2489,7 +2477,6 @@ async function viewAdmin(){
   const adminCount = arr.filter(u => Number(u.is_admin) === 1).length;
   const specialUser = arr.find(u => Number(u.is_special_liquidity_user) === 1) || null;
   const specialCount = specialUser ? 1 : 0;
-  const paisCount = arr.filter(u => String(u.category || '').toLowerCase() === 'pais').length;
 
   const rows = arr.map(u => ({
     id: u.id,
@@ -2498,7 +2485,6 @@ async function viewAdmin(){
     confirmado: Number(u.confirmed) === 1 ? 'Sim' : 'Não',
     admin: Number(u.is_admin) === 1 ? 'Sim' : 'Não',
     especial: Number(u.is_special_liquidity_user) === 1 ? 'Sim' : 'Não',
-    categoria: formatCategoryLabel(u.category),
     criado_em: esc(u.created_at ?? '')
   }));
 
@@ -2519,7 +2505,6 @@ async function viewAdmin(){
       <div class="stat-card"><span>Confirmados</span><strong>${confirmedCount}</strong></div>
       <div class="stat-card"><span>Administradores</span><strong>${adminCount}</strong></div>
       <div class="stat-card"><span>Usuário especial</span><strong>${specialCount}</strong></div>
-      <div class="stat-card"><span>Categoria Pais</span><strong>${paisCount}</strong></div>
     </div>`;
 
   const specialOptions = arr.length > 0
@@ -2528,20 +2513,6 @@ async function viewAdmin(){
         const isCurrent = Number(u.is_special_liquidity_user) === 1;
         const tag = isCurrent ? ' (atual)' : '';
         return `<option value="${u.id}"${isCurrent ? ' selected' : ''}>${label}${tag}</option>`;
-      }).join('')
-    : '<option value="" disabled selected>Nenhum usuário disponível</option>';
-
-  const paisUsers = arr.filter(u => String(u.category || '').toLowerCase() === 'pais');
-  const paisList = paisUsers.length > 0
-    ? `<ul class="admin-pais-list">${paisUsers.map(u => `<li><span class="pais-name">${esc(u.name || u.email || `Usuário #${u.id}`)}</span><span class="tag">Pais</span></li>`).join('')}</ul>`
-    : '<p class="hint">Nenhum usuário marcado como Pais.</p>';
-
-  const paisOptions = arr.length > 0
-    ? arr.map(u => {
-        const label = esc(u.name || u.email || `Usuário #${u.id}`);
-        const isPais = String(u.category || '').toLowerCase() === 'pais';
-        const tag = isPais ? ' (Pais)' : '';
-        return `<option value="${u.id}" data-category="${esc(u.category || '')}">${label}${tag}</option>`;
       }).join('')
     : '<option value="" disabled selected>Nenhum usuário disponível</option>';
 
@@ -2561,21 +2532,8 @@ async function viewAdmin(){
         </div>
         <p class="msg" id="specialUserMsg"></p>
       </div>
-      <div class="card admin-category">
-        <h2>Categoria especial: Pais</h2>
-        <p class="hint">Classifique usuários como Pais para destacá-los no painel.</p>
-        <div class="special-user-actions">
-          <select id="paisUserSelect">${paisOptions}</select>
-          <button id="togglePaisBtn">Marcar como Pais</button>
-        </div>
-        <p class="msg" id="paisCategoryMsg"></p>
-        <div class="admin-pais-wrapper">
-          <h3>Usuários Pais</h3>
-          ${paisList}
-        </div>
-      </div>
       <h2>Usuários cadastrados</h2>
-      ${table(rows, ['id','nome','email','confirmado','admin','especial','categoria','criado_em'], ['#','Nome','E-mail','Confirmado','Admin','Especial','Categoria','Criado em'])}
+      ${table(rows, ['id','nome','email','confirmado','admin','especial','criado_em'], ['#','Nome','E-mail','Confirmado','Admin','Especial','Criado em'])}
     </div>`;
 
   const selectEl = document.getElementById('specialUserSelect');
@@ -2641,75 +2599,6 @@ async function viewAdmin(){
       }
       btnEl.disabled = false;
       btnEl.textContent = 'Transformar em Usuário Especial';
-    });
-  }
-
-  const paisSelect = document.getElementById('paisUserSelect');
-  const paisBtn = document.getElementById('togglePaisBtn');
-  const paisMsg = document.getElementById('paisCategoryMsg');
-
-  if (paisSelect && paisBtn) {
-    const updatePaisButton = () => {
-      const selectedId = parseInt(paisSelect.value, 10);
-      if (!Number.isFinite(selectedId)) {
-        paisBtn.disabled = true;
-        paisBtn.textContent = 'Marcar como Pais';
-        return;
-      }
-      const user = arr.find(u => Number(u.id) === selectedId);
-      const isPais = user && String(user.category || '').toLowerCase() === 'pais';
-      paisBtn.disabled = false;
-      paisBtn.textContent = isPais ? 'Remover da categoria Pais' : 'Marcar como Pais';
-    };
-
-    updatePaisButton();
-
-    paisSelect.addEventListener('change', () => {
-      if (paisMsg) {
-        paisMsg.textContent = '';
-        paisMsg.classList.remove('err');
-      }
-      updatePaisButton();
-    });
-
-    paisBtn.addEventListener('click', async () => {
-      const selectedId = parseInt(paisSelect.value, 10);
-      if (!Number.isFinite(selectedId)) return;
-      const user = arr.find(u => Number(u.id) === selectedId);
-      const isPais = user && String(user.category || '').toLowerCase() === 'pais';
-      const newCategory = isPais ? '' : 'Pais';
-
-      paisBtn.disabled = true;
-      paisBtn.textContent = 'Salvando...';
-      if (paisMsg) {
-        paisMsg.textContent = '';
-        paisMsg.classList.remove('err');
-      }
-
-      const res = await fetch(API('admin_update_user_category.php'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: selectedId, category: newCategory })
-      });
-
-      if (res.ok) {
-        if (paisMsg) {
-          paisMsg.textContent = isPais ? 'Categoria removida.' : 'Usuário marcado como Pais.';
-          paisMsg.classList.remove('err');
-        }
-        await refreshAuthUI();
-        await viewAdmin();
-        return;
-      }
-
-      const err = await res.json().catch(()=>({}));
-      if (paisMsg) {
-        paisMsg.textContent = 'Erro: ' + (err.detail || err.error || res.statusText);
-        paisMsg.classList.add('err');
-      }
-      paisBtn.disabled = false;
-      updatePaisButton();
     });
   }
 

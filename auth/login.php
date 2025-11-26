@@ -20,7 +20,7 @@ if ($email === '' || $pass === '') {
 }
 
 $pdo = db();
-$stmt = $pdo->prepare("SELECT id, name, email, password_hash, COALESCE(confirmed,0) AS confirmed, COALESCE(is_admin,0) AS is_admin, COALESCE(category,'') AS category FROM users WHERE email=? LIMIT 1");
+$stmt = $pdo->prepare("SELECT id, name, email, password_hash, COALESCE(confirmed,0) AS confirmed, COALESCE(is_admin,0) AS is_admin FROM users WHERE email=? LIMIT 1");
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
@@ -55,11 +55,9 @@ $_SESSION['uid'] = intval($user['id']);
 $_SESSION['name'] = $user['name'] ?? null;
 $_SESSION['email'] = $user['email'] ?? null;
 $_SESSION['is_admin'] = intval($user['is_admin'] ?? 0) === 1;
-$_SESSION['category'] = $user['category'] ?? null;
 echo json_encode([
   'ok' => true,
   'user_id' => intval($user['id']),
   'is_admin' => intval($user['is_admin'] ?? 0) === 1,
-  'name' => $user['name'] ?? null,
-  'category' => $user['category'] ?? null
+  'name' => $user['name'] ?? null
 ]);
