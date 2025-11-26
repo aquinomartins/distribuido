@@ -111,6 +111,13 @@ CREATE TABLE special_liquidity_assets (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE parent_tab_visibility (
+  user_id BIGINT PRIMARY KEY,
+  allowed_tabs JSON NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 DELIMITER $$
 CREATE TRIGGER trg_positions_upsert
 AFTER INSERT ON asset_moves
