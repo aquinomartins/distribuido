@@ -164,9 +164,9 @@ const MENU_SHOWCASE_ITEMS = [
   { view: 'collections', label: 'Coleções', description: 'Curadoria generativa e NFTs exclusivas.' },
   { view: 'auctions', label: 'Leilões', description: 'Disputas ao vivo com lances e cronômetro.', featured: true },
   { view: 'events', label: 'Eventos', description: 'Streams, torneios e ativos raros.' },
-  { view: 'user_assets', label: '1.8 Meus Ativos', description: 'Controle completo das posições.' },
+  { view: 'user_assets', label: 'Meus Ativos', description: 'Controle completo das posições.' },
   { view: 'pending_transactions', label: 'Transações pendentes', description: 'Fluxo de autorizações e aprovações.' },
-  { view: 'liquidity_game', label: '1.7 Jogo Piscina de Liquidez', description: 'Simulações e partidas colaborativas.' },
+  { view: 'liquidity_game', label: 'Simulador', description: 'Simulações e partidas colaborativas.' },
   { view: 'admin', label: 'Painel Administrativo', description: 'Gestão e configuração do ambiente.', adminOnly: true },
   { view: 'admin_mint', label: 'Mint de NFT', description: 'Cadastro de novas peças no catálogo.', adminOnly: true },
 ];
@@ -253,9 +253,9 @@ function renderLandingView(){
     ${renderMenuShowcase()}
 
     <section class="landing-panels" aria-label="Resumo dos módulos">
-      <a class="panel-card" href="#" data-view="user_assets" aria-label="Ir para 1.8 Meus Ativos">
+      <a class="panel-card" href="#" data-view="user_assets" aria-label="Ir para Meus Ativos">
         <header>
-          <p>1.8 Meus Ativos</p>
+          <p>Meus Ativos</p>
           <strong>Controle total</strong>
         </header>
         <p>Gestão detalhada das posições e NFTs com filtros avançados.</p>
@@ -267,9 +267,9 @@ function renderLandingView(){
         </header>
         <p>Assuma o comando das aprovações e mantenha o time sincronizado.</p>
       </a>
-      <a class="panel-card" href="#" data-view="liquidity_game" aria-label="Ir para Jogo Piscina de Liquidez">
+      <a class="panel-card" href="#" data-view="liquidity_game" aria-label="Ir para Simulador">
         <header>
-          <p>Jogo Piscina de Liquidez</p>
+          <p>Simulador</p>
           <strong>Simulações</strong>
         </header>
         <p>Teste cenários de liquidez e compartilhe insights com o grupo.</p>
@@ -304,7 +304,7 @@ function viewHome(){
 let MARKET_COLLECTIONS = [
   {
     id: 'cryptopunks',
-    name: 'CryptoPunks',
+    name: 'Retrato',
     category: 'Coleção OG',
     totalItems: 10000,
     owners: 3300,
@@ -359,7 +359,7 @@ let MARKET_COLLECTIONS = [
   },
   {
     id: 'boredapeyc',
-    name: 'Bored Ape Yacht Club',
+    name: 'Paisagem',
     category: 'Club Membership',
     totalItems: 10000,
     owners: 5600,
@@ -404,7 +404,7 @@ let MARKET_COLLECTIONS = [
   },
   {
     id: 'pudgypenguins',
-    name: 'Pudgy Penguins',
+    name: 'Natureza Morta',
     category: 'Coleção PFP',
     totalItems: 8888,
     owners: 4600,
@@ -1166,7 +1166,7 @@ async function viewLiquidityGame(){
 
   view.innerHTML = `
     <div class="section game-setup">
-      <h1>Jogo Piscina de Liquidez</h1>
+      <h1>Simulador</h1>
       <p>Gerencie as ações disponíveis, a semifinal (times com NFT em mãos) e a final para definir quem lidera em reais nesse jogo com NFTs, Bitcoin e cotas da piscina de liquidez.</p>
       ${playerSelectionSection}
       <div class="actions">
@@ -3933,14 +3933,14 @@ function viewCollections(){
   const view = document.getElementById('view');
   view.innerHTML = `
     <section class="collections-view">
-      <header class="collections-header">
+      <!--header class="collections-header">
         <div>
           <p>Marketplace</p>
           <h1>Descubra coleções em destaque</h1>
           <span>Estilo inspirado no OpenSea, com cards interativos e dados em tempo real.</span>
         </div>
         <button class="ghost">Explorar tudo</button>
-      </header>
+      </header-->
       <section class="marketplace-listings" data-role="marketplace-listings">
         <div class="marketplace-header">
           <div>
@@ -4668,7 +4668,7 @@ async function viewAuctions(){
             <button type="button" data-role="auction-refresh">Atualizar leilões</button>
             <button type="button" class="ghost" data-role="focus-login">Entrar para dar lance</button>
           </div>
-          <div class="auction-hero-stats">
+          <!--div class="auction-hero-stats">
             <div>
               <small>Acesso</small>
               <strong>Visualização sem login</strong>
@@ -4681,15 +4681,15 @@ async function viewAuctions(){
               <small>Layout</small>
               <strong>Inspired by OpenSea</strong>
             </div>
-          </div>
+          </div-->
         </div>
-        <div class="auction-hero-gallery" aria-hidden="true">
+        <!--div class="auction-hero-gallery" aria-hidden="true">
           <div class="auction-hero-card"></div>
           <div class="auction-hero-card"></div>
           <div class="auction-hero-card"></div>
-        </div>
+        </div-->
       </header>
-      <div class="auction-grid-header">
+      <!--div class="auction-grid-header">
         <div>
           <p>Catálogo ao vivo</p>
           <h2>Veja tudo sem login</h2>
@@ -4699,7 +4699,7 @@ async function viewAuctions(){
           <span class="chip">Visível para todos</span>
           <span class="chip chip-warning">Login exigido para lances</span>
         </div>
-      </div>
+      </div-->
       <div class="auction-list" data-role="auction-list">
         <p class="hint">Carregando leilões...</p>
       </div>
