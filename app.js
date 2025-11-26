@@ -9,9 +9,7 @@ let currentSession = {
   name:null,
   email:null,
   is_special_liquidity_user:false,
-  special_liquidity_email:null,
-  is_parent:false,
-  parent_tabs:[]
+  special_liquidity_email:null
 };
 
 let authOverlayEscHandler = null;
@@ -128,48 +126,6 @@ function clamp(value, min, max){
   return Math.min(Math.max(number, min), max);
 }
 
-function isParentRestrictionActive(){
-  return currentSession.is_parent && !currentSession.is_admin;
-}
-
-function getAllowedParentTabs(){
-  if (!isParentRestrictionActive()) return null;
-  if (Array.isArray(currentSession.parent_tabs)) {
-    return currentSession.parent_tabs.map(String).filter(Boolean);
-  }
-  return [];
-}
-
-function isViewAllowedForCurrentUser(viewName){
-  if (!viewName) return false;
-  if (currentSession.is_admin) return true;
-  if (!isParentRestrictionActive()) return true;
-  const allowedTabs = getAllowedParentTabs() || [];
-  return allowedTabs.includes(viewName);
-}
-
-function findFirstAllowedView(){
-  if (currentSession.is_admin) return 'home';
-  const allowedTabs = getAllowedParentTabs() || [];
-  return allowedTabs.length > 0 ? allowedTabs[0] : 'home';
-}
-
-function renderParentRestrictionMessage(viewName){
-  const viewLabel = (PARENT_TAB_OPTIONS.find(opt => opt.value === viewName)?.label) || viewName || 'módulo';
-  const allowedTabs = getAllowedParentTabs() || [];
-  const readableList = allowedTabs
-    .map(value => PARENT_TAB_OPTIONS.find(opt => opt.value === value)?.label || value)
-    .join(', ');
-  const listNote = readableList
-    ? `<p class="hint">Abas liberadas para Pais: ${esc(readableList)}.</p>`
-    : '<p class="hint err">Nenhuma aba foi liberada para este perfil ainda. Contate o administrador.</p>';
-  return `<div class="section">
-    <h1>Acesso limitado</h1>
-    <p>O módulo ${esc(viewLabel)} não está visível para o seu perfil de Pais.</p>
-    ${listNote}
-  </div>`;
-}
-
 function formatDateTime(value){
   if (!value) return '';
   const date = new Date(value);
@@ -215,23 +171,8 @@ const MENU_SHOWCASE_ITEMS = [
   { view: 'admin_mint', label: 'Mint de NFT', description: 'Cadastro de novas peças no catálogo.', adminOnly: true },
 ];
 
-const PARENT_TAB_OPTIONS = [
-  { value: 'home', label: 'Home' },
-  { value: 'live_market', label: 'Mercado ao vivo' },
-  { value: 'collections', label: 'Coleções' },
-  { value: 'auctions', label: 'Leilões' },
-  { value: 'events', label: 'Eventos' },
-  { value: 'user_assets', label: '1.8 Meus Ativos' },
-  { value: 'pending_transactions', label: 'Transações pendentes' },
-  { value: 'liquidity_game', label: '1.7 Jogo Piscina de Liquidez' },
-];
-
 function renderMenuShowcase(){
-  const visibleItems = MENU_SHOWCASE_ITEMS.filter(item => {
-    if (item.adminOnly && !currentSession.is_admin) return false;
-    if (isParentRestrictionActive() && !isViewAllowedForCurrentUser(item.view)) return false;
-    return true;
-  });
+  const visibleItems = MENU_SHOWCASE_ITEMS.filter(item => !(item.adminOnly && !currentSession.is_admin));
   const cards = visibleItems.map((item, index)=>{
     const isFeatured = item.featured;
     const badge = isFeatured ? '<span class="menu-showcase__badge" aria-label="Acesso rápido ao módulo de leilões">Destaque</span>' : '';
@@ -1579,9 +1520,7 @@ async function refreshAuthUI(){
     email: s && s.email ? String(s.email) : null,
     is_admin: !!(s && s.is_admin),
     is_special_liquidity_user: !!(s && s.is_special_liquidity_user),
-    special_liquidity_email: s && s.special_liquidity_email ? String(s.special_liquidity_email) : null,
-    is_parent: !!(s && s.is_parent),
-    parent_tabs: Array.isArray(s && s.parent_tabs) ? (s.parent_tabs.map(String).filter(Boolean)) : []
+    special_liquidity_email: s && s.special_liquidity_email ? String(s.special_liquidity_email) : null
   };
 
   const loginForm = document.getElementById('loginForm');
@@ -1611,15 +1550,11 @@ async function refreshAuthUI(){
   if (document.body) {
     document.body.classList.toggle('is-admin', currentSession.is_admin);
     document.body.classList.toggle('is-special-liquidity-user', currentSession.is_special_liquidity_user);
-    document.body.classList.toggle('is-parent', isParentRestrictionActive());
   }
 
   if (!currentSession.is_special_liquidity_user) {
     liquiditySpecialAssets = null;
   }
-
-  applyMenuVisibility();
-  enforceParentViewRestriction();
 }
 function initAuth(){
   // login
@@ -2526,30 +2461,22 @@ async function viewAdmin(){
   const view = document.getElementById('view');
   view.innerHTML = `<h1>Painel Administrativo</h1><p>Carregando informações...</p>`;
 
-  const [data, liquidityData, parentsData] = await Promise.all([
+  const [data, liquidityData] = await Promise.all([
     getJSON(API('admin_users.php')),
-    getJSON(API('users.php')),
-    getJSON(API('admin_parent_tabs.php'))
+    getJSON(API('users.php'))
   ]);
-  if (data.__auth === false || liquidityData.__auth === false || parentsData.__auth === false) return needLogin();
-  if (data.__forbidden || liquidityData.__forbidden || parentsData.__forbidden) {
+  if (data.__auth === false || liquidityData.__auth === false) return needLogin();
+  if (data.__forbidden || liquidityData.__forbidden) {
     view.innerHTML = `<h1>Acesso restrito</h1><p>Somente administradores podem visualizar esta área.</p>`;
     return;
   }
 
   const arr = Array.isArray(data) ? data : [];
-  const parentOverview = Array.isArray(parentsData) ? parentsData : [];
-  const parentConfigMap = parentOverview.reduce((acc, item) => {
-    const uid = Number(item.user_id);
-    acc[uid] = Array.isArray(item.tabs) ? item.tabs.map(String) : [];
-    return acc;
-  }, {});
   const total = arr.length;
   const confirmedCount = arr.filter(u => Number(u.confirmed) === 1).length;
   const adminCount = arr.filter(u => Number(u.is_admin) === 1).length;
   const specialUser = arr.find(u => Number(u.is_special_liquidity_user) === 1) || null;
   const specialCount = specialUser ? 1 : 0;
-  const parentCount = Object.keys(parentConfigMap).length;
 
   const rows = arr.map(u => ({
     id: u.id,
@@ -2558,7 +2485,6 @@ async function viewAdmin(){
     confirmado: Number(u.confirmed) === 1 ? 'Sim' : 'Não',
     admin: Number(u.is_admin) === 1 ? 'Sim' : 'Não',
     especial: Number(u.is_special_liquidity_user) === 1 ? 'Sim' : 'Não',
-    pais: parentConfigMap[Number(u.id)] ? 'Sim' : 'Não',
     criado_em: esc(u.created_at ?? '')
   }));
 
@@ -2578,7 +2504,6 @@ async function viewAdmin(){
       <div class="stat-card"><span>Usuários</span><strong>${total}</strong></div>
       <div class="stat-card"><span>Confirmados</span><strong>${confirmedCount}</strong></div>
       <div class="stat-card"><span>Administradores</span><strong>${adminCount}</strong></div>
-      <div class="stat-card"><span>Pais</span><strong>${parentCount}</strong></div>
       <div class="stat-card"><span>Usuário especial</span><strong>${specialCount}</strong></div>
     </div>`;
 
@@ -2591,22 +2516,6 @@ async function viewAdmin(){
       }).join('')
     : '<option value="" disabled selected>Nenhum usuário disponível</option>';
 
-  const parentSelectOptions = arr.length > 0
-    ? arr.map(u => {
-        const label = esc(u.name || u.email || `Usuário #${u.id}`);
-        const isParent = !!parentConfigMap[Number(u.id)];
-        const tag = isParent ? ' (Pai)' : '';
-        return `<option value="${u.id}">${label}${tag}</option>`;
-      }).join('')
-    : '<option value="" disabled selected>Nenhum usuário disponível</option>';
-
-  const parentTabCheckboxes = PARENT_TAB_OPTIONS.map(opt => `
-    <label class="parent-tab-option">
-      <input type="checkbox" data-parent-tab="${esc(opt.value)}" />
-      <span>${esc(opt.label)}</span>
-    </label>
-  `).join('');
-
   view.innerHTML = `
     <div class="section admin-dashboard">
       <h1>Painel Administrativo</h1>
@@ -2614,24 +2523,6 @@ async function viewAdmin(){
       ${stats}
       ${rosterSection}
       ${specialAssetsSection}
-      <div class="card admin-parent-tabs" data-role="parent-tabs-card">
-        <h2>Pais</h2>
-        <p class="hint">Escolha os usuários que terão o perfil Pais e as abas que ficarão visíveis para eles.</p>
-        <div class="parent-tabs-grid">
-          <label class="form-field">
-            <span>Usuário</span>
-            <select data-role="parent-user-select">${parentSelectOptions}</select>
-          </label>
-          <div class="parent-tab-options" data-role="parent-tab-options">
-            ${parentTabCheckboxes}
-          </div>
-        </div>
-        <div class="parent-actions">
-          <button type="button" data-role="save-parent-tabs">Salvar visibilidade</button>
-          <p class="hint">Se nenhuma aba for marcada, o usuário deixará de ser Pai.</p>
-        </div>
-        <p class="msg" data-role="parent-tabs-msg"></p>
-      </div>
       <div class="card admin-special-user">
         <h2>Usuário Especial</h2>
         <p class="hint">Escolha o usuário que poderá controlar os ativos da piscina de liquidez.</p>
@@ -2642,7 +2533,7 @@ async function viewAdmin(){
         <p class="msg" id="specialUserMsg"></p>
       </div>
       <h2>Usuários cadastrados</h2>
-      ${table(rows, ['id','nome','email','confirmado','admin','pais','especial','criado_em'], ['#','Nome','E-mail','Confirmado','Admin','Pais','Especial','Criado em'])}
+      ${table(rows, ['id','nome','email','confirmado','admin','especial','criado_em'], ['#','Nome','E-mail','Confirmado','Admin','Especial','Criado em'])}
     </div>`;
 
   const selectEl = document.getElementById('specialUserSelect');
@@ -2708,85 +2599,6 @@ async function viewAdmin(){
       }
       btnEl.disabled = false;
       btnEl.textContent = 'Transformar em Usuário Especial';
-    });
-  }
-
-  const parentSelect = view.querySelector('[data-role="parent-user-select"]');
-  const parentTabContainer = view.querySelector('[data-role="parent-tab-options"]');
-  const parentMsg = view.querySelector('[data-role="parent-tabs-msg"]');
-  const parentSaveBtn = view.querySelector('[data-role="save-parent-tabs"]');
-
-  const clearParentMsg = ()=>{
-    if (!parentMsg) return;
-    parentMsg.textContent = '';
-    parentMsg.classList.remove('err');
-  };
-
-  const fillParentTabs = (userId)=>{
-    if (!parentTabContainer) return;
-    const selectedTabs = parentConfigMap[userId] || [];
-    parentTabContainer.querySelectorAll('input[data-parent-tab]').forEach(input => {
-      input.checked = selectedTabs.includes(input.dataset.parentTab);
-    });
-  };
-
-  if (parentSelect && parentTabContainer) {
-    const initialId = parseInt(parentSelect.value, 10);
-    fillParentTabs(initialId);
-    parentSelect.addEventListener('change', ()=>{
-      clearParentMsg();
-      const selectedId = parseInt(parentSelect.value, 10);
-      fillParentTabs(selectedId);
-    });
-  }
-
-  if (parentSaveBtn && parentSelect && parentTabContainer) {
-    parentSaveBtn.addEventListener('click', async ()=>{
-      const userId = parseInt(parentSelect.value, 10);
-      if (!Number.isFinite(userId)) return;
-      const tabs = Array.from(parentTabContainer.querySelectorAll('input[data-parent-tab]:checked'))
-        .map(input => input.dataset.parentTab)
-        .filter(Boolean);
-      parentSaveBtn.disabled = true;
-      parentSaveBtn.textContent = 'Salvando...';
-      clearParentMsg();
-      try {
-        const res = await fetch(API('admin_parent_tabs.php'), {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, tabs })
-        });
-        if (res.ok) {
-          const payload = await res.json().catch(()=>({}));
-          if (payload && payload.ok) {
-            if (parentMsg) {
-              parentMsg.textContent = payload.is_parent
-                ? 'Abas liberadas para o perfil Pais.'
-                : 'Usuário removido da categoria Pais.';
-              parentMsg.classList.remove('err');
-            }
-            await refreshAuthUI();
-            await viewAdmin();
-            return;
-          }
-        }
-        const err = await res.json().catch(()=>({}));
-        if (parentMsg) {
-          parentMsg.textContent = 'Erro: ' + (err.detail || err.error || res.statusText);
-          parentMsg.classList.add('err');
-        }
-      } catch (err) {
-        if (parentMsg) {
-          parentMsg.textContent = 'Erro inesperado ao salvar as abas.';
-          parentMsg.classList.add('err');
-        }
-      } finally {
-        if (parentSaveBtn) {
-          parentSaveBtn.disabled = false;
-          parentSaveBtn.textContent = 'Salvar visibilidade';
-        }
-      }
     });
   }
 
@@ -4828,8 +4640,6 @@ const VIEW_HANDLERS = {
   admin_mint: viewAdminMint,
 };
 
-let activeViewName = null;
-
 function setActiveMenuItem(viewName){
   const menuLinks = document.querySelectorAll('.menu a[data-view]');
   menuLinks.forEach(link=>{
@@ -4839,21 +4649,6 @@ function setActiveMenuItem(viewName){
       link.setAttribute('aria-current', 'page');
     } else {
       link.removeAttribute('aria-current');
-    }
-  });
-}
-
-function applyMenuVisibility(){
-  const menuLinks = document.querySelectorAll('.menu [data-view]');
-  menuLinks.forEach(link => {
-    const viewName = link.dataset.view;
-    const item = link.closest('li') || link;
-    const isAdminOnly = item?.classList?.contains('admin-only');
-    const hasAdminAccess = !isAdminOnly || currentSession.is_admin;
-    const parentAllowed = !isParentRestrictionActive() || isViewAllowedForCurrentUser(viewName);
-    const visible = hasAdminAccess && parentAllowed;
-    if (item) {
-      item.style.display = visible ? '' : 'none';
     }
   });
 }
@@ -4873,41 +4668,13 @@ function updateViewQueryParam(viewName){
   }
 }
 
-function enforceParentViewRestriction(){
-  if (!isParentRestrictionActive()) return;
-  if (!activeViewName) return;
-  if (isViewAllowedForCurrentUser(activeViewName)) return;
-  const fallback = findFirstAllowedView();
-  if (fallback && fallback !== activeViewName) {
-    navigateToView(fallback, { updateUrl: true });
-    return;
-  }
-  const view = document.getElementById('view');
-  if (view) {
-    view.innerHTML = renderParentRestrictionMessage(activeViewName);
-  }
-}
-
 function navigateToView(viewName, options = {}){
   if (!viewName) return false;
   stopAuctionTicker();
   closeAuthOverlay();
-  if (isParentRestrictionActive() && !isViewAllowedForCurrentUser(viewName)) {
-    const fallback = findFirstAllowedView();
-    if (fallback && fallback !== viewName) {
-      return navigateToView(fallback, options);
-    }
-    const view = document.getElementById('view');
-    if (view) {
-      view.innerHTML = renderParentRestrictionMessage(viewName);
-    }
-    setActiveMenuItem(null);
-    return false;
-  }
   const handler = VIEW_HANDLERS[viewName];
   if (typeof handler !== 'function') return false;
   handler();
-  activeViewName = viewName;
   requestAnimationFrame(()=>{
     initCardTilt(document.getElementById('view'));
   });
