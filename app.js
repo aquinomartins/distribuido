@@ -14,6 +14,8 @@ let currentSession = {
 
 let authOverlayEscHandler = null;
 
+const LIQUIDITY_GAME_GUEST_STORAGE_KEY = 'liquidity_game_guest_state';
+
 function moveAuthBoxToOverlay(){
   const overlaySlot = document.querySelector('[data-role="auth-overlay-slot"]');
   const authBox = document.getElementById('authBox');
@@ -942,6 +944,14 @@ async function persistLiquidityGameState(force=false){
   }
   const serialized = JSON.stringify(requestBody);
   if (!force && liquidityGameLastSaved === serialized) return;
+  if (!currentSession.logged) {
+    const snapshot = { state: payload };
+    const updatedSpecial = getSpecialAssetsPayload();
+    if (updatedSpecial) snapshot.special_assets = updatedSpecial;
+    saveGuestLiquidityState(snapshot);
+    liquidityGameLastSaved = JSON.stringify(snapshot);
+    return;
+  }
   try {
     const response = await fetch(API('liquidity_game_state.php'), {
       method: 'POST',
@@ -982,6 +992,21 @@ async function loadLiquidityGameState(){
     clearTimeout(liquidityGameSaveTimer);
     liquidityGameSaveTimer = null;
   }
+  if (!currentSession.logged){
+    const guestState = loadGuestLiquidityState();
+    liquiditySpecialAssets = null;
+    if (guestState && guestState.state) {
+      const loaded = deserializeLiquidityGameState(guestState.state);
+      if (loaded) {
+        liquidityGame = loaded;
+        liquidityGameLastSaved = JSON.stringify({ state: serializeLiquidityGameState(liquidityGame) });
+      }
+    } else {
+      liquidityGame = null;
+      liquidityGameLastSaved = JSON.stringify({ state: null });
+    }
+    return true;
+  }
   const data = await getJSON(API('liquidity_game_state.php'));
   if (data.__auth === false) return false;
   if (!data || typeof data !== 'object' || !Object.prototype.hasOwnProperty.call(data, 'state')){
@@ -1015,6 +1040,30 @@ const LIQUIDITY_ANONYMOUS_PLAYER_ASSETS = {
   nft: 1,
   quotas: 0
 };
+
+function loadGuestLiquidityState(){
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LIQUIDITY_GAME_GUEST_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, 'state')) {
+      return parsed;
+    }
+  } catch (err) {
+    console.warn('Não foi possível carregar o estado do simulador para convidados.', err);
+  }
+  return null;
+}
+
+function saveGuestLiquidityState(snapshot){
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(LIQUIDITY_GAME_GUEST_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch (err) {
+    console.warn('Não foi possível salvar o estado do simulador para convidados.', err);
+  }
+}
 
 function createAnonymousLiquidityPlayers(count){
   const total = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
@@ -1117,19 +1166,25 @@ function activeLiquidityTeams(state){
 
 async function viewLiquidityGame(){
   const view = document.getElementById('view');
-  const data = await getJSON(API('users.php'));
-  if (data.__auth===false) return needLogin();
+  let data = null;
+  if (currentSession.logged) {
+    data = await getJSON(API('users.php'));
+  }
 
-  liquidityPlayers = (Array.isArray(data.users) ? data.users : []).map(player => {
-    const assets = normalizeSpecialAssets(player && player.assets);
-    return {
-      id: player ? player.id : null,
-      name: (player && typeof player.name === 'string') ? player.name.trim() : '',
-      assets
-    };
-  });
+  if (!currentSession.logged || (data && data.__auth === false)) {
+    liquidityPlayers = createAnonymousLiquidityPlayers(4);
+  } else {
+    liquidityPlayers = (Array.isArray(data.users) ? data.users : []).map(player => {
+      const assets = normalizeSpecialAssets(player && player.assets);
+      return {
+        id: player ? player.id : null,
+        name: (player && typeof player.name === 'string') ? player.name.trim() : '',
+        assets
+      };
+    });
+  }
   const stateLoaded = await loadLiquidityGameState();
-  if (stateLoaded === false) return needLogin();
+  if (stateLoaded === false && currentSession.logged) return needLogin();
   const minPlayers = currentSession.is_admin ? 2 : 1;
   const playerCount = liquidityPlayers.length;
   const maxSelectablePlayers = Math.min(10, playerCount);
@@ -1163,11 +1218,15 @@ async function viewLiquidityGame(){
       ? '<p class="hint err">Cadastre pelo menos 2 usuários confirmados para iniciar o jogo.</p>'
       : '<p class="hint err">Seus ativos ainda não estão disponíveis para o jogo. Verifique com o administrador.</p>')
     : '<p class="hint">Cada time anônimo inicia com R$ 1.600 e 1 NFT (sem BTC ou cotas). Você pode renomear o time após o início.</p>';
+  const guestNote = currentSession.logged
+    ? ''
+    : '<p class="hint">Modo demonstração: o simulador fica disponível sem login e o progresso fica salvo apenas neste dispositivo.</p>';
 
   view.innerHTML = `
     <div class="section game-setup">
       <h1>Simulador</h1>
       <p>Gerencie as ações disponíveis, a semifinal (times com NFT em mãos) e a final para definir quem lidera em reais nesse jogo com NFTs, Bitcoin e cotas da piscina de liquidez.</p>
+      ${guestNote}
       ${playerSelectionSection}
       <div class="actions">
         <button id="startGameBtn" ${disabledAttr}>${btnLabel}</button>
