@@ -1187,7 +1187,9 @@ async function viewLiquidityGame(){
   if (stateLoaded === false && currentSession.logged) return needLogin();
   const minPlayers = currentSession.is_admin ? 2 : 1;
   const playerCount = liquidityPlayers.length;
-  const maxSelectablePlayers = Math.min(10, playerCount);
+  const maxSelectablePlayers = currentSession.is_admin
+    ? Math.min(10, playerCount)
+    : 10;
   const minSelectablePlayers = Math.max(minPlayers, 1);
   const canSelectPlayers = maxSelectablePlayers >= minSelectablePlayers;
   const defaultSelection = canSelectPlayers
@@ -1200,9 +1202,11 @@ async function viewLiquidityGame(){
       const plural = i > 1 ? 'es' : '';
       options.push(`<option value="${i}"${i === defaultSelection ? ' selected' : ''}>${i} jogador${plural}</option>`);
     }
-    const availabilityNote = playerCount > 10
-      ? `<p class="hint">Jogadores disponíveis: ${playerCount}. Somente 10 podem participar por partida.</p>`
-      : `<p class="hint">Jogadores disponíveis: ${playerCount}.</p>`;
+    const availabilityNote = currentSession.is_admin
+      ? (playerCount > 10
+        ? `<p class="hint">Jogadores disponíveis: ${playerCount}. Somente 10 podem participar por partida.</p>`
+        : `<p class="hint">Jogadores disponíveis: ${playerCount}.</p>`)
+      : '<p class="hint">Selecione entre 1 e 10 jogadores para a simulação.</p>';
     playerSelectionSection = `
       <div class="player-selection">
         <h3>Quantidade de jogadores</h3>
