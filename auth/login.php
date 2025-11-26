@@ -20,19 +20,7 @@ if ($email === '' || $pass === '') {
 }
 
 $pdo = db();
-
-// Compatibilidade com bancos antigos que não possuem a coluna is_admin
-$adminColumn = '0 AS is_admin';
-try {
-  $col = $pdo->query("SHOW COLUMNS FROM users LIKE 'is_admin'");
-  if ($col && $col->rowCount() > 0) {
-    $adminColumn = 'COALESCE(is_admin,0) AS is_admin';
-  }
-} catch (PDOException $e) {
-  // continua usando o fallback padrão
-}
-
-$stmt = $pdo->prepare("SELECT id, name, email, password_hash, COALESCE(confirmed,0) AS confirmed, {$adminColumn} FROM users WHERE email=? LIMIT 1");
+$stmt = $pdo->prepare("SELECT id, name, email, password_hash, COALESCE(confirmed,0) AS confirmed, COALESCE(is_admin,0) AS is_admin FROM users WHERE email=? LIMIT 1");
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
