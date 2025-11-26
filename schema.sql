@@ -7,8 +7,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   confirmed TINYINT DEFAULT 0,
-  is_admin TINYINT DEFAULT 0,
-  category VARCHAR(64) DEFAULT NULL
+  is_admin TINYINT DEFAULT 0
 );
 
 CREATE TABLE assets (
