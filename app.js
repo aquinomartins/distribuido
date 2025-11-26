@@ -301,7 +301,7 @@ function viewHome(){
 }
 
 /* ========= Coleções ========= */
-const MARKET_COLLECTIONS = [
+let MARKET_COLLECTIONS = [
   {
     id: 'cryptopunks',
     name: 'CryptoPunks',
@@ -493,6 +493,86 @@ const PLATFORM_EVENTS = [
 
 let collectionsEscHandler = null;
 let mintedCollectionsCache = [];
+
+function shuffleArray(list){
+  const arr = Array.isArray(list) ? [...list] : [];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildMintedMarketplaceItems(){
+  const mintedItems = [];
+  if (!Array.isArray(mintedCollectionsCache)) return mintedItems;
+
+  mintedCollectionsCache.forEach((collection) => {
+    const ownerDisplay = collection && (collection.owner_display || collection.owner_name || collection.owner_email);
+    const owner = ownerDisplay || 'Coleção da casa';
+    const items = Array.isArray(collection && collection.items) ? collection.items : [];
+    items.forEach((item, index) => {
+      const priceEth = Number(item.price_eth || item.price);
+      const lastSaleEth = Number(item.last_sale_eth || 0);
+      const traits = [item.author, item.year, item.technique, item.dimensions].filter(Boolean);
+      mintedItems.push({
+        id: `minted-${item.work_id || item.instance_id || index}`,
+        name: item.title || 'NFT sem título',
+        priceEth: Number.isFinite(priceEth) ? priceEth : 0,
+        lastSaleEth: Number.isFinite(lastSaleEth) ? lastSaleEth : 0,
+        owner,
+        availability: item.status || 'Mint interno',
+        traits: traits.length ? traits : ['Mint interno'],
+        image: item.image_url || NFT_IMAGE_PLACEHOLDER,
+        description: item.description || '',
+        created_at: item.created_at || null,
+      });
+    });
+  });
+
+  return mintedItems;
+}
+
+function distributeMintedItemsAcrossCategories(items){
+  const categories = ['Coleção OG', 'Club Membership', 'Coleção PFP'];
+  const chunkSize = Math.max(1, Math.ceil(items.length / categories.length));
+  return categories.map((_, index) => items.slice(index * chunkSize, (index + 1) * chunkSize));
+}
+
+function applyMintedCollectionsToMarketplace(){
+  const mintedItems = shuffleArray(buildMintedMarketplaceItems());
+  if (!mintedItems.length) return false;
+
+  const categories = ['Coleção OG', 'Club Membership', 'Coleção PFP'];
+  const floorValues = mintedItems
+    .map(item => Number(item.priceEth))
+    .filter(val => Number.isFinite(val) && val > 0);
+  const floorEth = floorValues.length ? Math.min(...floorValues) : 0;
+  const volumeEth = mintedItems.reduce((acc, item) => acc + (Number.isFinite(item.priceEth) ? item.priceEth : 0), 0);
+  const distributed = distributeMintedItemsAcrossCategories(mintedItems);
+
+  MARKET_COLLECTIONS = MARKET_COLLECTIONS.map((collection, index) => {
+    if (!categories.includes(collection.category)) return collection;
+    const mintedForCategory = distributed[index] || [];
+    const coverImage = mintedForCategory[0] ? mintedForCategory[0].image : collection.coverImage;
+    const featuredItem = mintedForCategory[0] ? mintedForCategory[0].id : collection.featuredItem;
+
+    return {
+      ...collection,
+      totalItems: mintedForCategory.length || collection.totalItems,
+      owners: mintedCollectionsCache.length || collection.owners,
+      floorEth: floorValues.length ? floorEth : collection.floorEth,
+      volumeEth: volumeEth || collection.volumeEth,
+      change24h: collection.change24h || '+0.0%',
+      description: 'NFTs criadas pelo módulo de mint interno da plataforma.',
+      coverImage,
+      featuredItem,
+      items: mintedForCategory.length ? mintedForCategory : collection.items,
+    };
+  });
+
+  return true;
+}
 
 /* ========= Liquidity Game ========= */
 let liquidityGame = null;
@@ -3385,6 +3465,25 @@ function closeCollectionModal(modal){
   modal.classList.remove('visible');
 }
 
+function renderCollectionsSection(grid, detailSection){
+  if (!grid) return;
+  const shuffledCollections = shuffleArray(MARKET_COLLECTIONS);
+  grid.innerHTML = shuffledCollections.map((collection, index)=>buildCollectionCard(collection, index)).join('');
+  const firstCollection = shuffledCollections[0];
+  if (detailSection) renderCollectionDetail(detailSection, firstCollection);
+
+  grid.querySelectorAll('.collection-card').forEach(card => {
+    card.addEventListener('click', ()=>{
+      const collection = MARKET_COLLECTIONS.find(col => col.id === card.dataset.collection);
+      renderCollectionDetail(detailSection, collection);
+      grid.querySelectorAll('.collection-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+    });
+  });
+  const firstCard = grid.querySelector('.collection-card');
+  if (firstCard) firstCard.classList.add('active');
+}
+
 function findMintedItem(workId){
   const parsedId = Number(workId);
   if (!Number.isFinite(parsedId)) return null;
@@ -3597,7 +3696,7 @@ function renderMintedCollectionsGrid(section, payload){
   }).join('');
 }
 
-async function loadMintedCollections(section){
+async function loadMintedCollections(section, afterLoad){
   if (!section) return;
   const grid = section.querySelector('[data-role="minted-grid"]');
   if (grid) grid.innerHTML = '<p class="hint">Carregando NFTs do mint...</p>';
@@ -3612,6 +3711,7 @@ async function loadMintedCollections(section){
       return;
     }
     renderMintedCollectionsGrid(section, data);
+    if (typeof afterLoad === 'function') afterLoad();
   } catch (err) {
     if (grid) grid.innerHTML = '<p class="hint err">Não foi possível carregar as NFTs mintadas.</p>';
   }
@@ -3831,7 +3931,6 @@ function viewEvents(){
 
 function viewCollections(){
   const view = document.getElementById('view');
-  const firstCollection = MARKET_COLLECTIONS[0];
   view.innerHTML = `
     <section class="collections-view">
       <header class="collections-header">
@@ -3878,13 +3977,16 @@ function viewCollections(){
     </section>
   `;
   const grid = view.querySelector('[data-role="collections-grid"]');
-  grid.innerHTML = MARKET_COLLECTIONS.map((collection, index)=>buildCollectionCard(collection, index)).join('');
   const detailSection = view.querySelector('[data-role="collection-detail"]');
-  renderCollectionDetail(detailSection, firstCollection);
+  const rerenderCollections = ()=>renderCollectionsSection(grid, detailSection);
+  rerenderCollections();
   const marketplaceSection = view.querySelector('[data-role="marketplace-listings"]');
   loadMarketplaceListings(marketplaceSection);
   const mintedSection = view.querySelector('[data-role="minted-collections"]');
-  loadMintedCollections(mintedSection);
+  loadMintedCollections(mintedSection, ()=>{
+    const updated = applyMintedCollectionsToMarketplace();
+    if (updated) rerenderCollections();
+  });
   if (mintedSection) {
     mintedSection.addEventListener('click', (evt) => {
       const item = evt.target.closest('.minted-collection-item');
@@ -3905,16 +4007,6 @@ function viewCollections(){
       });
     }
   }
-  grid.querySelectorAll('.collection-card').forEach(card => {
-    card.addEventListener('click', ()=>{
-      const collection = MARKET_COLLECTIONS.find(col => col.id === card.dataset.collection);
-      renderCollectionDetail(detailSection, collection);
-      grid.querySelectorAll('.collection-card').forEach(c => c.classList.remove('active'));
-      card.classList.add('active');
-    });
-  });
-  const firstCard = grid.querySelector('.collection-card');
-  if (firstCard) firstCard.classList.add('active');
   if (collectionsEscHandler){
     document.removeEventListener('keydown', collectionsEscHandler);
   }
