@@ -4263,6 +4263,20 @@ async function handleAuctionClick(event){
     refreshBtn.disabled = false;
     return;
   }
+  const deleteBtn = event.target.closest('[data-action="delete-auction"]');
+  if (deleteBtn) {
+    event.preventDefault();
+    const auctionId = parseInt(deleteBtn.getAttribute('data-auction-id'), 10);
+    const confirmed = Number.isFinite(auctionId)
+      ? window.confirm('Excluir o registro deste leilão? Esta ação não pode ser desfeita.')
+      : false;
+    if (confirmed) {
+      deleteBtn.disabled = true;
+      await performAuctionAdminAction('delete', auctionId);
+      deleteBtn.disabled = false;
+    }
+    return;
+  }
   const finalizeBtn = event.target.closest('[data-action="finalize-auction"]');
   if (finalizeBtn) {
     event.preventDefault();
@@ -4315,8 +4329,13 @@ async function performAuctionAdminAction(action, auctionId){
       }
       return;
     }
+    const successText = action === 'finalize'
+      ? 'Leilão encerrado.'
+      : action === 'start'
+        ? 'Leilão iniciado.'
+        : 'Registro removido.';
     if (msg) {
-      msg.textContent = action === 'finalize' ? 'Leilão encerrado.' : 'Leilão iniciado.';
+      msg.textContent = successText;
       msg.classList.remove('err');
     }
     await loadAuctionsSection(document.getElementById('view'));
@@ -4416,25 +4435,46 @@ function updateAuctionAdminOverview(view){
   const container = view.querySelector('[data-role="auction-admin-overview"]');
   if (!container) return;
   const auctions = Array.isArray(auctionTickerState.items) ? auctionTickerState.items : [];
-  if (auctions.length === 0) {
-    container.innerHTML = '<p class="hint">Nenhum leilão configurado até o momento.</p>';
-    return;
-  }
-  const rows = buildAuctionAdminTableRows(auctions);
-  container.innerHTML = `
-    <div class="auction-admin-table-wrapper">
-      <h3>Leilões cadastrados</h3>
-      <table class="tbl auction-admin-table">
+  const finishedStatuses = ['ended', 'settled'];
+  const activeAuctions = auctions.filter(a => !finishedStatuses.includes(a.status));
+  const finishedAuctions = auctions.filter(a => finishedStatuses.includes(a.status));
+
+  const activeRows = buildAuctionAdminTableRows(activeAuctions);
+  const finishedRows = buildAuctionAdminTableRows(finishedAuctions, { allowDelete: true });
+
+  const activeTable = activeAuctions.length
+    ? `<table class="tbl auction-admin-table">
         <thead>
           <tr><th>Lote</th><th>Status</th><th>Início</th><th>Término</th><th>Lance atual</th><th>Ações</th></tr>
         </thead>
-        <tbody>${rows}</tbody>
-      </table>
+        <tbody>${activeRows}</tbody>
+      </table>`
+    : '<p class="hint">Nenhum leilão configurado até o momento.</p>';
+
+  const finishedTable = finishedAuctions.length
+    ? `<table class="tbl auction-admin-table">
+        <thead>
+          <tr><th>Lote</th><th>Status</th><th>Início</th><th>Término</th><th>Lance atual</th><th>Ações</th></tr>
+        </thead>
+        <tbody>${finishedRows}</tbody>
+      </table>`
+    : '<p class="hint">Nenhum leilão realizado até o momento.</p>';
+
+  container.innerHTML = `
+    <div class="auction-admin-table-wrapper">
+      <h3>Leilões cadastrados</h3>
+      ${activeTable}
+    </div>
+    <div class="auction-admin-table-wrapper">
+      <h3>Leilões realizados</h3>
+      <p class="hint">Use a exclusão apenas para remover registros já finalizados.</p>
+      ${finishedTable}
     </div>
   `;
 }
 
-function buildAuctionAdminTableRows(auctions){
+function buildAuctionAdminTableRows(auctions, options = {}){
+  const { allowDelete = false } = options;
   return auctions.map(auction => {
     const statusLabel = AUCTION_STATUS_LABELS[auction.status] || auction.status;
     const startText = auction.starts_at ? formatDateTime(auction.starts_at) : '-';
@@ -4445,6 +4485,8 @@ function buildAuctionAdminTableRows(auctions){
       actions = `<button type="button" data-action="start-auction" data-auction-id="${auction.id}">Iniciar</button>`;
     } else if (auction.status === 'running') {
       actions = `<button type="button" data-action="finalize-auction" data-auction-id="${auction.id}">Encerrar</button>`;
+    } else if (allowDelete && ['ended', 'settled'].includes(auction.status)) {
+      actions = `<button type="button" data-action="delete-auction" data-auction-id="${auction.id}">Excluir registro</button>`;
     }
     const title = esc(auction.title || `NFT #${auction.id}`);
     return `<tr>

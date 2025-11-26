@@ -26,7 +26,7 @@ exit;
 
 function handle_auctions_list(PDO $pdo) {
   $isAdmin = current_user_is_admin();
-  $allowedStatuses = $isAdmin ? ['draft', 'running', 'ended'] : ['running', 'ended'];
+  $allowedStatuses = $isAdmin ? ['draft', 'running', 'ended', 'settled'] : ['running', 'ended'];
   $placeholders = implode(',', array_fill(0, count($allowedStatuses), '?'));
   $sql = "SELECT a.id, a.seller_id, a.asset_instance_id, a.starts_at, a.ends_at, a.reserve_price, a.status,
                  u.name AS seller_name, u.email AS seller_email,
@@ -130,10 +130,59 @@ function handle_auctions_admin(PDO $pdo) {
     case 'finalize':
       mutate_auction_status($pdo, $body, 'finalize');
       return;
+    case 'delete':
+      delete_auction($pdo, $body);
+      return;
     default:
       http_response_code(400);
       echo json_encode(['error' => 'invalid_action']);
       return;
+  }
+}
+
+function delete_auction(PDO $pdo, array $body): void {
+  $auctionId = isset($body['auction_id']) ? (int)$body['auction_id'] : 0;
+  if (!$auctionId) {
+    http_response_code(400);
+    echo json_encode(['error' => 'auction_required']);
+    return;
+  }
+
+  $stmt = $pdo->prepare("SELECT status FROM auctions WHERE id = ? LIMIT 1");
+  $stmt->execute([$auctionId]);
+  $auction = $stmt->fetch(PDO::FETCH_ASSOC);
+  if (!$auction) {
+    http_response_code(404);
+    echo json_encode(['error' => 'auction_not_found']);
+    return;
+  }
+
+  if (!in_array($auction['status'], ['ended', 'settled'], true)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'invalid_status']);
+    return;
+  }
+
+  $startedTx = !$pdo->inTransaction();
+  if ($startedTx) {
+    $pdo->beginTransaction();
+  }
+
+  try {
+    $pdo->prepare("DELETE FROM bids WHERE auction_id = ?")->execute([$auctionId]);
+    $pdo->prepare("DELETE FROM auctions WHERE id = ?")->execute([$auctionId]);
+
+    if ($startedTx && $pdo->inTransaction()) {
+      $pdo->commit();
+    }
+
+    echo json_encode(['ok' => true]);
+  } catch (Exception $e) {
+    if ($startedTx && $pdo->inTransaction()) {
+      $pdo->rollBack();
+    }
+    http_response_code(500);
+    echo json_encode(['error' => 'delete_failed', 'detail' => $e->getMessage()]);
   }
 }
 
