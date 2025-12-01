@@ -4093,6 +4093,7 @@ let auctionHandlersBound = false;
 let auctionTickerState = { items: [], serverOffsetMs: 0 };
 let auctionTickerInterval = null;
 let auctionTickerContainer = null;
+let auctionPreviewZoom = 1;
 
 function ensureAuctionHandlers(){
   if (auctionHandlersBound) return;
@@ -4280,6 +4281,126 @@ function renderAuctionsList(container, auctions){
   startAuctionTicker(container);
 }
 
+function setAuctionPreviewZoom(modal, zoomValue){
+  const modalEl = modal || document.querySelector('[data-role="auction-preview"]');
+  if (!modalEl) return;
+  auctionPreviewZoom = clamp(zoomValue, 1, 2.5);
+  const pane = modalEl.querySelector('[data-role="auction-zoom-pane"]');
+  if (pane) {
+    pane.style.setProperty('--zoom', auctionPreviewZoom.toFixed(2));
+  }
+  const label = modalEl.querySelector('[data-role="auction-zoom-label"]');
+  if (label) {
+    label.textContent = `${Math.round(auctionPreviewZoom * 100)}%`;
+  }
+}
+
+function closeAuctionPreview(modal){
+  const modalEl = modal || document.querySelector('[data-role="auction-preview"]');
+  if (!modalEl) return;
+  modalEl.setAttribute('hidden', 'hidden');
+  modalEl.classList.remove('visible');
+}
+
+function openAuctionPreview(auction){
+  const modal = document.querySelector('[data-role="auction-preview"]');
+  if (!modal || !auction) return;
+  const imageUrl = esc(auction.image_url || NFT_IMAGE_PLACEHOLDER);
+  const title = esc(auction.title || `NFT #${auction.id}`);
+  const seller = esc(auction.seller_name || 'Admin');
+  const statusLabel = AUCTION_STATUS_LABELS[auction.status] || auction.status;
+  const countdown = getAuctionCountdownState(auction);
+  const reserve = Number(auction.reserve_price || 0);
+  const reserveText = formatBRL(reserve);
+  const highest = Number(auction.highest_bid || 0);
+  const highestText = highest > 0 ? formatBRL(highest) : 'Sem lances';
+  const bidsCount = Number(auction.bids_count || 0);
+  const nextBid = Number(auction.next_minimum_bid || 0);
+  const nextBidText = nextBid > 0 ? formatBRL(nextBid) : reserveText;
+  const metaPieces = [
+    auction.author ? `<div><dt>Autor</dt><dd>${esc(auction.author)}</dd></div>` : '',
+    auction.year ? `<div><dt>Ano</dt><dd>${esc(auction.year)}</dd></div>` : '',
+    auction.technique ? `<div><dt>Técnica</dt><dd>${esc(auction.technique)}</dd></div>` : '',
+    auction.dimensions ? `<div><dt>Dimensões</dt><dd>${esc(auction.dimensions)}</dd></div>` : ''
+  ].filter(Boolean).join('');
+  const timings = [
+    auction.starts_at ? `<div><dt>Início</dt><dd>${formatDateTime(auction.starts_at) || '—'}</dd></div>` : '',
+    auction.ends_at ? `<div><dt>Encerramento</dt><dd>${formatDateTime(auction.ends_at) || '—'}</dd></div>` : ''
+  ].filter(Boolean).join('');
+  const desc = auction.description
+    ? esc(auction.description)
+    : 'Nenhuma descrição informada para este lote.';
+  modal.innerHTML = `
+    <div class="auction-preview-backdrop" data-action="close-preview"></div>
+    <article class="auction-preview-card">
+      <header>
+        <div>
+          <span class="auction-preview-status">${statusLabel}</span>
+          <h2>${title}</h2>
+          <small>Lote #${auction.id} · Vendedor: ${seller}</small>
+        </div>
+        <div class="auction-preview-countdown">
+          <span class="auction-phase" data-state="${countdown.phase}">${countdown.label}</span>
+          <strong>${countdown.text}</strong>
+        </div>
+        <button class="ghost" data-action="close-preview">Fechar</button>
+      </header>
+      <div class="auction-preview-body">
+        <div class="auction-preview-media" data-role="auction-zoom-pane" style="--zoom:1">
+          <img src="${imageUrl}" alt="${title}" loading="lazy" data-role="auction-zoom-toggle" />
+          <div class="auction-preview-zoom-controls">
+            <button type="button" data-action="zoom-out">−</button>
+            <span data-role="auction-zoom-label">100%</span>
+            <button type="button" data-action="zoom-in">+</button>
+          </div>
+        </div>
+        <div class="auction-preview-details">
+          <dl>
+            <div><dt>Lance atual</dt><dd>${highestText}</dd></div>
+            <div><dt>Próximo mínimo</dt><dd>${auction.status === 'running' ? nextBidText : '-'}</dd></div>
+            <div><dt>Lances</dt><dd>${bidsCount}</dd></div>
+            <div><dt>Reserva</dt><dd>${reserveText}</dd></div>
+            ${timings}
+            ${metaPieces}
+          </dl>
+          <div class="auction-preview-description">
+            <h3>Detalhes do lote</h3>
+            <p>${desc}</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+  modal.removeAttribute('hidden');
+  modal.classList.add('visible');
+  setAuctionPreviewZoom(modal, 1);
+  if (!modal.dataset.bound) {
+    modal.dataset.bound = 'true';
+    modal.addEventListener('click', (evt)=>{
+      const closeBtn = evt.target.closest('[data-action="close-preview"]');
+      const zoomIn = evt.target.closest('[data-action="zoom-in"]');
+      const zoomOut = evt.target.closest('[data-action="zoom-out"]');
+      const zoomToggle = evt.target.closest('[data-role="auction-zoom-toggle"]');
+      if (closeBtn || evt.target.classList.contains('auction-preview-backdrop')) {
+        closeAuctionPreview(modal);
+        return;
+      }
+      if (zoomIn) {
+        setAuctionPreviewZoom(modal, auctionPreviewZoom + 0.25);
+        return;
+      }
+      if (zoomOut) {
+        setAuctionPreviewZoom(modal, auctionPreviewZoom - 0.25);
+        return;
+      }
+      if (zoomToggle) {
+        const targetZoom = auctionPreviewZoom > 1 ? 1 : 2;
+        setAuctionPreviewZoom(modal, targetZoom);
+      }
+    });
+  }
+}
+
 async function loadAuctionsSection(view){
   const list = view.querySelector('[data-role="auction-list"]');
   if (!list) return;
@@ -4451,6 +4572,16 @@ async function handleAuctionClick(event){
       startBtn.disabled = true;
       await performAuctionAdminAction('start', auctionId);
       startBtn.disabled = false;
+    }
+  }
+  const card = event.target.closest('.auction-card');
+  const interacted = event.target.closest('button, input, select, textarea, form, label, a');
+  if (card && !interacted) {
+    const auctionId = parseInt(card.getAttribute('data-auction'), 10);
+    const auction = auctionTickerState.items.find(item => Number(item.id) === auctionId);
+    if (auction && auction.status === 'running') {
+      event.preventDefault();
+      openAuctionPreview(auction);
     }
   }
 }
@@ -4767,6 +4898,7 @@ async function viewAuctions(){
         <p class="hint">Carregando leilões...</p>
       </div>
       ${adminPanel}
+      <div class="auction-preview-modal" data-role="auction-preview" hidden></div>
     </section>
   `;
   await loadAuctionsSection(view);
