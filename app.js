@@ -4984,6 +4984,17 @@ async function viewAuctions(){
           <span class="chip chip-warning">Login exigido para lances</span>
         </div>
       </div-->
+      <div class="auction-active-band">
+        <div>
+          <p>Leilões ativos</p>
+          <h2>Disputas em andamento</h2>
+          <span>Toda a largura da tela dedicada aos lotes que estão ao vivo agora.</span>
+        </div>
+        <div class="auction-active-chips">
+          <span class="chip">Lances em tempo real</span>
+          <span class="chip chip-warning">Layout expandido</span>
+        </div>
+      </div>
       <div class="auction-list" data-role="auction-list">
         <p class="hint">Carregando leilões...</p>
       </div>
