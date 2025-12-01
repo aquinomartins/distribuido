@@ -4094,6 +4094,8 @@ let auctionTickerState = { items: [], serverOffsetMs: 0 };
 let auctionTickerInterval = null;
 let auctionTickerContainer = null;
 let auctionPreviewZoom = 1;
+let auctionPreviewPan = { x: 0, y: 0 };
+let auctionPanDrag = { active: false, startX: 0, startY: 0, originX: 0, originY: 0 };
 
 function ensureAuctionHandlers(){
   if (auctionHandlersBound) return;
@@ -4281,18 +4283,58 @@ function renderAuctionsList(container, auctions){
   startAuctionTicker(container);
 }
 
-function setAuctionPreviewZoom(modal, zoomValue){
+function getAuctionPanLimits(modal){
+  const pane = modal?.querySelector('[data-role="auction-zoom-pane"]');
+  if (!pane) return { maxX: 0, maxY: 0 };
+  const rect = pane.getBoundingClientRect();
+  const maxX = Math.max(0, (rect.width * auctionPreviewZoom - rect.width) / 2);
+  const maxY = Math.max(0, (rect.height * auctionPreviewZoom - rect.height) / 2);
+  return { maxX, maxY };
+}
+
+function clampAuctionPan(modal, pan){
+  const { maxX, maxY } = getAuctionPanLimits(modal);
+  return {
+    x: clamp(pan?.x ?? 0, -maxX, maxX),
+    y: clamp(pan?.y ?? 0, -maxY, maxY)
+  };
+}
+
+function applyAuctionPreviewTransform(modal){
   const modalEl = modal || document.querySelector('[data-role="auction-preview"]');
   if (!modalEl) return;
-  auctionPreviewZoom = clamp(zoomValue, 1, 2.5);
   const pane = modalEl.querySelector('[data-role="auction-zoom-pane"]');
-  if (pane) {
-    pane.style.setProperty('--zoom', auctionPreviewZoom.toFixed(2));
+  const img = modalEl.querySelector('[data-role="auction-zoom-toggle"]');
+  if (!pane || !img) return;
+  auctionPreviewPan = clampAuctionPan(modalEl, auctionPreviewPan);
+  img.style.setProperty('--pan-x', `${auctionPreviewPan.x}px`);
+  img.style.setProperty('--pan-y', `${auctionPreviewPan.y}px`);
+  img.style.setProperty('--zoom', auctionPreviewZoom.toFixed(2));
+  pane.classList.toggle('is-zoomed', auctionPreviewZoom > 1);
+  const cursor = auctionPreviewZoom > 1 ? (auctionPanDrag.active ? 'grabbing' : 'grab') : 'zoom-in';
+  img.style.setProperty('--cursor', cursor);
+  const hint = modalEl.querySelector('[data-role="auction-zoom-hint"]');
+  if (hint) {
+    hint.textContent = auctionPreviewZoom > 1
+      ? 'Arraste com a mão para navegar pelos detalhes do lote.'
+      : 'Use o scroll ou clique para ampliar até 500%.';
   }
   const label = modalEl.querySelector('[data-role="auction-zoom-label"]');
   if (label) {
     label.textContent = `${Math.round(auctionPreviewZoom * 100)}%`;
   }
+}
+
+function setAuctionPreviewZoom(modal, zoomValue){
+  const modalEl = modal || document.querySelector('[data-role="auction-preview"]');
+  if (!modalEl) return;
+  auctionPreviewZoom = clamp(zoomValue, 1, 5);
+  if (auctionPreviewZoom === 1) {
+    auctionPreviewPan = { x: 0, y: 0 };
+  } else {
+    auctionPreviewPan = clampAuctionPan(modalEl, auctionPreviewPan);
+  }
+  applyAuctionPreviewTransform(modalEl);
 }
 
 function closeAuctionPreview(modal){
@@ -4347,11 +4389,13 @@ function openAuctionPreview(auction){
       </header>
       <div class="auction-preview-body">
         <div class="auction-preview-media" data-role="auction-zoom-pane" style="--zoom:1">
+          <div class="auction-preview-pan-hint" data-role="auction-zoom-hint">Use o scroll ou clique para ampliar até 500%.</div>
           <img src="${imageUrl}" alt="${title}" loading="lazy" data-role="auction-zoom-toggle" />
           <div class="auction-preview-zoom-controls">
             <button type="button" data-action="zoom-out">−</button>
             <span data-role="auction-zoom-label">100%</span>
             <button type="button" data-action="zoom-in">+</button>
+            <button type="button" data-action="reset-zoom">Centralizar</button>
           </div>
         </div>
         <div class="auction-preview-details">
@@ -4380,6 +4424,7 @@ function openAuctionPreview(auction){
       const closeBtn = evt.target.closest('[data-action="close-preview"]');
       const zoomIn = evt.target.closest('[data-action="zoom-in"]');
       const zoomOut = evt.target.closest('[data-action="zoom-out"]');
+      const resetZoom = evt.target.closest('[data-action="reset-zoom"]');
       const zoomToggle = evt.target.closest('[data-role="auction-zoom-toggle"]');
       if (closeBtn || evt.target.classList.contains('auction-preview-backdrop')) {
         closeAuctionPreview(modal);
@@ -4393,11 +4438,56 @@ function openAuctionPreview(auction){
         setAuctionPreviewZoom(modal, auctionPreviewZoom - 0.25);
         return;
       }
+      if (resetZoom) {
+        auctionPreviewPan = { x: 0, y: 0 };
+        setAuctionPreviewZoom(modal, 1);
+        return;
+      }
       if (zoomToggle) {
-        const targetZoom = auctionPreviewZoom > 1 ? 1 : 2;
+        const targetZoom = auctionPreviewZoom > 1 ? 1 : 3;
         setAuctionPreviewZoom(modal, targetZoom);
       }
     });
+    const pane = modal.querySelector('[data-role="auction-zoom-pane"]');
+    if (pane) {
+      pane.addEventListener('pointerdown', (evt)=>{
+        if (auctionPreviewZoom <= 1) return;
+        evt.preventDefault();
+        auctionPanDrag = {
+          active: true,
+          startX: evt.clientX,
+          startY: evt.clientY,
+          originX: auctionPreviewPan.x,
+          originY: auctionPreviewPan.y
+        };
+        pane.setPointerCapture?.(evt.pointerId);
+        pane.classList.add('is-dragging');
+      });
+      pane.addEventListener('pointermove', (evt)=>{
+        if (!auctionPanDrag.active) return;
+        evt.preventDefault();
+        const nextPan = {
+          x: auctionPanDrag.originX + (evt.clientX - auctionPanDrag.startX),
+          y: auctionPanDrag.originY + (evt.clientY - auctionPanDrag.startY)
+        };
+        auctionPreviewPan = clampAuctionPan(modal, nextPan);
+        applyAuctionPreviewTransform(modal);
+      });
+      const finishDrag = ()=>{
+        if (!auctionPanDrag.active) return;
+        auctionPanDrag = { ...auctionPanDrag, active: false };
+        pane.classList.remove('is-dragging');
+        applyAuctionPreviewTransform(modal);
+      };
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((eventName)=>{
+        pane.addEventListener(eventName, finishDrag);
+      });
+      pane.addEventListener('wheel', (evt)=>{
+        evt.preventDefault();
+        const delta = evt.deltaY > 0 ? -0.12 : 0.12;
+        setAuctionPreviewZoom(modal, auctionPreviewZoom + delta);
+      }, { passive:false });
+    }
   }
 }
 
